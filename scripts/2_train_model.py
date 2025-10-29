@@ -16,6 +16,15 @@ import os
 import sys
 import pickle
 
+# IMPORTANT: Set CUDA device BEFORE any imports that use CUDA
+# This ensures PyCUDA uses the correct GPU, especially important for MIG mode
+if 'CUDA_VISIBLE_DEVICES' not in os.environ:
+    # Default to device 0 if not set
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    print(f"INFO: Setting CUDA_VISIBLE_DEVICES=0")
+else:
+    print(f"INFO: Using CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
+
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 

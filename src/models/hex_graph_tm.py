@@ -61,6 +61,20 @@ class HexGraphTM:
 
     def _create_tm(self):
         """Create the Tsetlin Machine instance."""
+        # Check CUDA availability
+        try:
+            import pycuda.driver as cuda
+            import pycuda.autoinit
+            device = pycuda.autoinit.device
+            free_mem, total_mem = cuda.mem_get_info()
+            print(f"\n✓ GPU Device: {device.name()}")
+            print(f"  - Compute Capability: {device.compute_capability()}")
+            print(f"  - Memory: {free_mem / (1024**3):.2f} GB free / {total_mem / (1024**3):.2f} GB total")
+            print(f"  - Using CUDA for training\n")
+        except Exception as e:
+            print(f"\n⚠ WARNING: Could not access GPU: {e}")
+            print("  Training will be very slow without GPU!\n")
+        
         self.tm = MultiClassGraphTsetlinMachine(
             number_of_clauses=self.params['number_of_clauses'],
             T=self.params['T'],
