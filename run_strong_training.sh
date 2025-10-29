@@ -14,6 +14,13 @@ echo ""
 echo "With 1M training samples, expect 90-95% accuracy!"
 echo ""
 
+# Set CUDA device to use the MIG instance
+# MIG device 0 (GPU 0, GI 6, CI 0) with 14 SMs and ~20GB memory
+export CUDA_VISIBLE_DEVICES=0
+
+echo "Using CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+echo ""
+
 # Train with A100-optimized settings
 python3 scripts/2_train_model.py \
     --board-size 5 \
