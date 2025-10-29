@@ -13,9 +13,9 @@ class Config:
     # Board settings
     board_size: int = 10
 
-    # Data generation
-    num_train_games: int = 100000  # Increased for near-perfect accuracy
-    num_test_games: int = 20000
+    # Data generation (A100 80GB optimized)
+    num_train_games: int = 1000000  # Massive dataset for near-perfect accuracy
+    num_test_games: int = 200000
     save_states_at: List[int] = None  # Will be set to [0, -2, -5] in __post_init__
     use_cuda: bool = True
 
@@ -23,9 +23,9 @@ class Config:
     hypervector_size: int = 128
     hypervector_bits: int = 4
 
-    # GTM Model parameters - OPTIMIZED (working configuration)
-    # Key insight: 100 clauses works best - too many clauses causes initialization bias
-    number_of_clauses: int = 100  # Sweet spot - prevents initialization bias
+    # GTM Model parameters - A100 80GB OPTIMIZED
+    # Key insight: 100 clauses works best, but with massive data, can go to 200
+    number_of_clauses: int = 200  # Scaled up for A100 + massive dataset
     T: int = 500  # Optimal for binary classification
     s: float = 5.0  # Good balance for learning speed
     depth: int = 6  # Deep message passing for connectivity detection
@@ -37,9 +37,9 @@ class Config:
     grid: tuple = (16*13, 1, 1)  # Optimized for A100-style
     block: tuple = (128, 1, 1)
 
-    # Training
-    epochs: int = 50  # More epochs for higher accuracy
-    test_every: int = 5  # Check progress more frequently
+    # Training (A100 80GB)
+    epochs: int = 100  # Leverage massive dataset
+    test_every: int = 10  # Check progress every 10 epochs
 
     # Paths
     data_dir: str = "data"

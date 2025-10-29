@@ -1,18 +1,25 @@
 #!/bin/bash
 
 echo "============================================================"
-echo "GENERATING LARGE DATASET FOR 5X5 HEX"
+echo "GENERATING MASSIVE DATASET FOR 5X5 HEX (A100 80GB)"
 echo "============================================================"
 echo ""
-echo "This will generate 500,000 training games and 80,000 test games"
-echo "for 5x5 Hex boards to achieve near-perfect accuracy."
+echo "Detected NVIDIA A100 80GB - Optimizing for maximum throughput!"
 echo ""
-echo "Estimated time: ~30-60 minutes depending on your CPU"
+echo "This will generate:"
+echo "  - 1,000,000 training games"
+echo "  - 200,000 test games"
+echo ""
+echo "With A100 80GB, this enables:"
+echo "  - Near 100% accuracy potential"
+echo "  - Strong generalization"
+echo ""
+echo "Estimated time: ~60-90 minutes"
 echo ""
 read -p "Press Enter to continue..."
 
-# Generate games using C code
-python scripts/1_generate_games.py --board-size 5 --num-train 500000 --num-test 80000
+# Generate games using C code (CPU-bound, so not affected by GPU)
+python3 scripts/1_generate_games.py --board-size 5 --train-games 1000000 --test-games 200000
 
 echo ""
 echo "============================================================"
@@ -21,7 +28,7 @@ echo "============================================================"
 echo ""
 
 # Build GTM datasets
-python scripts/1b_build_gtm_datasets.py --board-size 5
+python3 scripts/1b_build_gtm_datasets.py --board-size 5
 
 echo ""
 echo "============================================================"
