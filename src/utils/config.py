@@ -25,13 +25,13 @@ class Config:
 
     # GTM Model parameters - A100 80GB OPTIMIZED
     # Key insight: 100 clauses works best, but with massive data, can go to 200
-    number_of_clauses: int = 200  # Scaled up for A100 + massive dataset
-    T: int = 500  # Optimal for binary classification
-    s: float = 5.0  # Good balance for learning speed
-    depth: int = 6  # Deep message passing for connectivity detection
+    number_of_clauses: int = 100  # Scaled up for A100 + massive dataset
+    T: int = 1500  # Optimal for binary classification
+    s: float = 0.1  # Good balance for learning speed
+    depth: int = 3  # Deep message passing for connectivity detection
     message_size: int = 256
     message_bits: int = 2
-    max_included_literals: int = 128
+    max_included_literals: int = 255
 
     # CUDA configuration (for 6GB GPU)
     grid: tuple = (16*13, 1, 1)  # Optimized for A100-style
@@ -39,7 +39,7 @@ class Config:
 
     # Training (A100 80GB)
     epochs: int = 100  # Leverage massive dataset
-    test_every: int = 10  # Check progress every 10 epochs
+    test_every: int = 5  # Check progress every 10 epochs
 
     # Paths
     data_dir: str = "data"

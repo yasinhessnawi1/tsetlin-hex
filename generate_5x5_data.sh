@@ -18,17 +18,17 @@ echo "Estimated time: ~60-90 minutes"
 echo ""
 read -p "Press Enter to continue..."
 
-# Generate games using C code (CPU-bound, so not affected by GPU)
-python3 scripts/1_generate_games.py --board-size 5 --train-games 1000000 --test-games 200000
+# Generate games using C code with multi-stage tracking (CPU-bound, so not affected by GPU)
+python3 scripts/1_generate_games.py --board-size 5 --num-train 1000000 --num-test 200000 --save-states 0,-2,-5
 
 echo ""
 echo "============================================================"
-echo "BUILDING GTM DATASETS"
+echo "BUILDING GTM DATASETS FOR ALL STAGES"
 echo "============================================================"
 echo ""
 
-# Build GTM datasets
-python3 scripts/1b_build_gtm_datasets.py --board-size 5
+# Build GTM datasets for all stages (0, -2, -5)
+python3 scripts/1b_build_gtm_datasets.py --board-size 5 --stages all
 
 echo ""
 echo "============================================================"

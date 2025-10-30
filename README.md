@@ -253,6 +253,22 @@ Track how information flows through the graph during reasoning.
 
 ## Troubleshooting
 
+### GPU Not Being Used (MIG Mode)
+
+If you're on a server with NVIDIA A100 and MIG (Multi-Instance GPU) mode enabled, you may see the GPU not being utilized. 
+
+**Quick Fix:**
+```bash
+export CUDA_VISIBLE_DEVICES=0
+./run_strong_training.sh
+```
+
+**For detailed troubleshooting**, see [CUDA_MIG_TROUBLESHOOTING.md](CUDA_MIG_TROUBLESHOOTING.md) which covers:
+- MIG mode detection
+- PyCUDA configuration issues
+- Step-by-step diagnostic tests
+- Alternative solutions
+
 ### CUDA Out of Memory
 
 Reduce batch size or grid dimensions:
@@ -270,9 +286,10 @@ grid = (16*10, 1, 1)  # Reduce from 16*13
 
 ### Slow Training
 
-1. Ensure CUDA is enabled: Check `nvidia-smi`
-2. Use CuPy for data generation: `--use-cuda`
-3. Reduce dataset size for testing: `--num-train 10000`
+1. **Ensure GPU is being used**: Run `nvidia-smi` during training - you should see your Python process listed
+2. **MIG Mode Issue**: See GPU Not Being Used section above
+3. Use CuPy for data generation: `--use-cuda`
+4. Reduce dataset size for testing: `--num-train 10000`
 
 ## Next Steps
 

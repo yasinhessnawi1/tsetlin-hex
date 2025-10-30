@@ -186,7 +186,7 @@ class DatasetBuilder:
                     graphs.add_graph_node_property(graph_id, node_name, f'Row{row}')
                     graphs.add_graph_node_property(graph_id, node_name, f'Col{col}')
 
-        # IMPORTANT: Encode the graphs to finalize the representation
+        #  Encode the graphs to finalize the representation
         if verbose:
             print("\nStep 5/5: Encoding graphs...")
 

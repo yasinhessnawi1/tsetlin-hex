@@ -115,15 +115,15 @@ def train_stage(
         name=f"Test Set (Stage: {stage_name})"
     )
 
-    # Save model
+    # Save model (disabled due to PyCUDA pickling issues)
     if save_model:
-        os.makedirs(config.models_dir, exist_ok=True)
-        model_path = config.get_model_path(stage_name)
-        model.save(model_path)
-
-        # Save training history
-        history_path = model_path.replace('.pkl', '_history.pkl')
-        predictor.save_training_history(history_path)
+        print("\n[INFO] Model saving disabled (PyCUDA pickling not supported)")
+        print("[INFO] For competition, only accuracy numbers are needed")
+        # os.makedirs(config.models_dir, exist_ok=True)
+        # model_path = config.get_model_path(stage_name)
+        # model.save(model_path)
+        # history_path = model_path.replace('.pkl', '_history.pkl')
+        # predictor.save_training_history(history_path)
 
     return {
         'model': model,
