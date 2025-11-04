@@ -119,11 +119,11 @@ def train_stage(
     if save_model:
         print("\n[INFO] Model saving disabled (PyCUDA pickling not supported)")
         print("[INFO] For competition, only accuracy numbers are needed")
-        # os.makedirs(config.models_dir, exist_ok=True)
-        # model_path = config.get_model_path(stage_name)
-        # model.save(model_path)
-        # history_path = model_path.replace('.pkl', '_history.pkl')
-        # predictor.save_training_history(history_path)
+        os.makedirs(config.models_dir, exist_ok=True)
+        model_path = config.get_model_path(stage_name)
+        model.save(model_path)
+        history_path = model_path.replace('.pkl', '_history.pkl')
+        predictor.save_training_history(history_path)
 
     return {
         'model': model,
@@ -146,12 +146,34 @@ def main():
                         help='Directory containing GTM datasets (default: data)')
     parser.add_argument('--models-dir', type=str, default='models',
                         help='Directory to save models (default: models)')
+
+    # Training parameters
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs (default: 100)')
     parser.add_argument('--clauses', type=int, default=1000,
-                        help='Number of clauses (default: 500)')
-    parser.add_argument('--depth', type=int, default=3,
+                        help='Number of clauses (default: 1000)')
+    parser.add_argument('--depth', type=int, default=6,
                         help='Message passing depth (default: 3)')
+    parser.add_argument('--T', type=int, default=5000,
+                        help='Threshold T (default: 5000)')
+    parser.add_argument('--s', type=float, default=10.0,
+                        help='Specificity s (default: 10.0)')
+
+    # Advanced parameters
+    parser.add_argument('--message-size', type=int, default=256,
+                        help='Message size (default: 256)')
+    parser.add_argument('--message-bits', type=int, default=2,
+                        help='Message bits (default: 2)')
+    parser.add_argument('--max-included-literals', type=int, default=255,
+                        help='Max included literals (default: 255)')
+    parser.add_argument('--test-every', type=int, default=5,
+                        help='Test every N epochs (default: 5)')
+
+    # Informational only (hypervectors set at dataset build time)
+    parser.add_argument('--hypervector-size', type=int, default=None,
+                        help='INFO ONLY: Hypervector size used in dataset (set at build time)')
+    parser.add_argument('--hypervector-bits', type=int, default=None,
+                        help='INFO ONLY: Hypervector bits used in dataset (set at build time)')
 
     args = parser.parse_args()
 
@@ -160,12 +182,34 @@ def main():
     config.board_size = args.board_size
     config.data_dir = args.data_dir
     config.models_dir = args.models_dir
+
+    # Training parameters
     config.epochs = args.epochs
     config.number_of_clauses = args.clauses
     config.depth = args.depth
+    config.T = args.T
+    config.s = args.s
+    config.test_every = args.test_every
+
+    # Advanced parameters
+    config.message_size = args.message_size
+    config.message_bits = args.message_bits
+    config.max_included_literals = args.max_included_literals
 
     # Print configuration
     config.print_config()
+
+    # Print hypervector info if provided (informational only)
+    if args.hypervector_size or args.hypervector_bits:
+        print("\n" + "="*60)
+        print("HYPERVECTOR SETTINGS (from dataset build)")
+        print("="*60)
+        if args.hypervector_size:
+            print(f"Hypervector size: {args.hypervector_size}")
+        if args.hypervector_bits:
+            print(f"Hypervector bits: {args.hypervector_bits}")
+        print("Note: These were set when building the dataset (.pkl files)")
+        print("="*60)
 
     # Determine which stages to train
     if args.stage == 'all':
