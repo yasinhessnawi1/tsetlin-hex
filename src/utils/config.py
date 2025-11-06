@@ -20,17 +20,17 @@ class Config:
     use_cuda: bool = True
 
     # Graph encoding
-    hypervector_size: int = 128
+    hypervector_size: int = 256
     hypervector_bits: int = 4
 
     # GTM Model parameters - A100 80GB OPTIMIZED
     # Key insight: 100 clauses works best, but with massive data, can go to 200
     number_of_clauses: int = 100  # Scaled up for A100 + massive dataset
-    T: int = 1500  # Optimal for binary classification
-    s: float = 0.1  # Good balance for learning speed
-    depth: int = 3  # Deep message passing for connectivity detection
-    message_size: int = 256
-    message_bits: int = 2
+    T: int = 5000  # Optimal for binary classification
+    s: float = 10.0  # Good balance for learning speed
+    depth: int = 6  # Deep message passing for connectivity detection
+    message_size: int = 1024
+    message_bits: int = 4
     max_included_literals: int = 255
 
     # CUDA configuration (for 6GB GPU)

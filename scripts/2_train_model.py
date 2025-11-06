@@ -156,8 +156,8 @@ def main():
                         help='Message passing depth (default: 3)')
     parser.add_argument('--T', type=int, default=5000,
                         help='Threshold T (default: 5000)')
-    parser.add_argument('--s', type=float, default=10.0,
-                        help='Specificity s (default: 10.0)')
+    parser.add_argument('--s', type=float, default=0.01,
+                        help='Specificity s (default: 0.01)')
 
     # Advanced parameters
     parser.add_argument('--message-size', type=int, default=256,
