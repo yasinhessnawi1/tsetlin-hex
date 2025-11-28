@@ -25,11 +25,21 @@ if 'CUDA_VISIBLE_DEVICES' not in os.environ:
 else:
     print(f"INFO: Using CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
 
-# Add src to path
+# PATCH: Allow unsupported compiler versions (VS2022)
+try:
+    import pycuda.compiler
+    pycuda.compiler.DEFAULT_NVCC_FLAGS.append('-allow-unsupported-compiler')
+    pycuda.compiler.DEFAULT_NVCC_FLAGS.append('-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH')
+    print("INFO: Applied PyCUDA compiler flags for VS2022 compatibility")
+except ImportError:
+    print("WARNING: Could not import pycuda.compiler. Make sure pycuda is installed.")
+
+# Add src topath
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.models import HexGraphTM, Predictor
-from src.utils import Config
+from src.utils import Config, TrainingLogger
+from src.data_generation import DatasetBuilder
 
 
 def load_gtm_dataset(filepath: str):
@@ -44,7 +54,7 @@ def load_gtm_dataset(filepath: str):
 def train_stage(
     stage_name: str,
     config: Config,
-    save_model: bool = False  # Disabled due to CUDA pickling issues
+    save_model: bool = True  # Now enabled with proper get_state/set_state serialization
 ):
     """
     Train a model for a specific game stage.
@@ -57,6 +67,14 @@ def train_stage(
     print("\n" + "="*60)
     print(f"TRAINING MODEL FOR STAGE: {stage_name}")
     print("="*60)
+
+    # Create training logger for structured logging
+    logger = TrainingLogger(
+        base_dir=f"{config.models_dir}/training_runs",
+        stage=stage_name,
+        board_size=config.board_size
+    )
+    print(f"Training run folder: {logger.run_folder}")
 
     # Load datasets
     train_path = f"{config.data_dir}/train_gtm_{config.board_size}x{config.board_size}_{stage_name}.pkl"
@@ -89,8 +107,8 @@ def train_stage(
         block=config.block
     )
 
-    # Create predictor
-    predictor = Predictor(model)
+    # Create predictor with logger
+    predictor = Predictor(model, logger=logger)
 
     # Train
     train_acc, test_acc = predictor.train(
@@ -115,15 +133,73 @@ def train_stage(
         name=f"Test Set (Stage: {stage_name})"
     )
 
-    # Save model (disabled due to PyCUDA pickling issues)
+    # Save model using new structured logging
     if save_model:
-        print("\n[INFO] Model saving disabled (PyCUDA pickling not supported)")
-        print("[INFO] For competition, only accuracy numbers are needed")
-        os.makedirs(config.models_dir, exist_ok=True)
-        model_path = config.get_model_path(stage_name)
+        print("\n" + "="*60)
+        print("SAVING MODEL AND TRAINING ARTIFACTS")
+        print("="*60)
+        
+        # Save model to logger's run folder
+        model_path = logger.get_model_path()
         model.save(model_path)
-        history_path = model_path.replace('.pkl', '_history.pkl')
-        predictor.save_training_history(history_path)
+        
+        # Save configuration
+        logger.set_config(
+            model_hyperparameters={
+                'number_of_clauses': config.number_of_clauses,
+                'T': config.T,
+                's': config.s,
+                'depth': config.depth,
+                'message_size': config.message_size,
+                'message_bits': config.message_bits,
+                'max_included_literals': config.max_included_literals
+            },
+            training_config={
+                'epochs': config.epochs,
+                'board_size': config.board_size,
+                'stage': stage_name,
+                'test_every': config.test_every
+            },
+            cuda_config={
+                'grid': list(config.grid),
+                'block': list(config.block)
+            },
+            dataset_info={
+                'train_path': train_path,
+                'test_path': test_path,
+                'train_samples': len(train_labels),
+                'test_samples': len(test_labels)
+            }
+        )
+        logger.save_config()
+        
+        # Save training history
+        logger.save_training_history()
+        
+        # Save summary
+        logger.save_summary(train_acc, test_acc)
+        
+        # Extract and save human-readable rules
+        print("\nExtracting human-readable rules...")
+        from src.utils import RuleExtractor
+        from src.data_generation import DatasetBuilder
+        
+        # Get symbol names from the dataset builder
+        builder = DatasetBuilder(board_size=config.board_size)
+        symbol_names = builder.symbols
+        
+        # Create rule extractor and save rules
+        rule_extractor = RuleExtractor(model, symbol_names)
+        rules_path = os.path.join(logger.run_path, "rules.txt")
+        rule_extractor.save_rules(rules_path, max_rules=200)  # Save top 200 rules
+        
+        # Extract and save message passing information
+        print("\nExtracting message passing patterns...")
+        messages_path = os.path.join(logger.run_path, "messages.txt")
+        rule_extractor.save_messages(messages_path, num_edge_types=1)  # 1 edge type for Hex
+        
+        print(f"\nAll artifacts saved to: {logger.run_path}")
+        print("="*60)
 
     return {
         'model': model,
@@ -131,7 +207,8 @@ def train_stage(
         'train_acc': train_acc,
         'test_acc': test_acc,
         'train_results': train_results,
-        'test_results': test_results
+        'test_results': test_results,
+        'logger': logger
     }
 
 
@@ -150,11 +227,11 @@ def main():
     # Training parameters
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs (default: 100)')
-    parser.add_argument('--clauses', type=int, default=1000,
+    parser.add_argument('--clauses', type=int, default=10000,
                         help='Number of clauses (default: 1000)')
     parser.add_argument('--depth', type=int, default=6,
                         help='Message passing depth (default: 3)')
-    parser.add_argument('--T', type=int, default=5000,
+    parser.add_argument('--T', type=int, default=15000,
                         help='Threshold T (default: 5000)')
     parser.add_argument('--s', type=float, default=0.01,
                         help='Specificity s (default: 0.01)')

@@ -1,4 +1,8 @@
 @echo off
+
+REM Navigate to script directory (makes script portable)
+cd /d %~dp0
+
 REM Generate small 10x10 dataset for local hyperparameter testing
 echo ============================================================
 echo GENERATING 10x10 DATASET - LOCAL TESTING
@@ -39,7 +43,7 @@ echo ============================================================
 echo STEP 2: GENERATING GAMES
 echo ============================================================
 
-python scripts/1_generate_games.py --board-size 10 --num-train 50000 --num-test 10000 --save-states 0,-2,-5
+python scripts/1_generate_games.py --board-size 10 --num-train 1000000 --num-test 200000 --save-states 0,-2,-5
 
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Game generation failed!

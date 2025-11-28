@@ -13,11 +13,19 @@ import os
 import sys
 import pickle
 
+# PATCH: Allow unsupported compiler versions (VS2022)
+try:
+    import pycuda.compiler
+    pycuda.compiler.DEFAULT_NVCC_FLAGS.append('-allow-unsupported-compiler')
+    pycuda.compiler.DEFAULT_NVCC_FLAGS.append('-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH')
+except ImportError:
+    pass
+
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.models import HexGraphTM, Predictor
-from src.utils import Config
+from src.utils import Config, find_latest_run
 
 
 def load_gtm_dataset(filepath: str):
@@ -29,20 +37,40 @@ def load_gtm_dataset(filepath: str):
     return data['graphs'], data['labels']
 
 
-def evaluate_stage(stage_name: str, config: Config):
+def evaluate_stage(stage_name: str, config: Config, run_folder: str = None, use_latest: bool = False):
     """
     Evaluate a model for a specific game stage.
 
     Args:
         stage_name: Name of the stage (e.g., 'end', '-2', '-5')
-        config: Configuration object
+       config: Configuration object
+        run_folder: Specific run folder to evaluate (None = use config.get_model_path)
+        use_latest: If True, find and use the latest training run
     """
     print("\n" + "="*60)
     print(f"EVALUATING MODEL FOR STAGE: {stage_name}")
     print("="*60)
 
-    # Load model
-    model_path = config.get_model_path(stage_name)
+    # Determine model path
+    if use_latest:
+        # Find latest training run
+        latest_run = find_latest_run(
+            base_dir=f"{config.models_dir}/training_runs",
+            stage=stage_name,
+            board_size=config.board_size
+        )
+        if latest_run is None:
+            print(f"\nERROR: No training run found for stage '{stage_name}' and board size {config.board_size}")
+            return None
+        model_path = os.path.join(latest_run, "model.pkl")
+        print(f"\nUsing latest training run: {os.path.basename(latest_run)}")
+    elif run_folder is not None:
+        # Use specified run folder
+        model_path = os.path.join(run_folder, "model.pkl")
+        print(f"\nUsing specified run folder: {os.path.basename(run_folder)}")
+    else:
+        # Use old-style model path (backward compatibility)
+        model_path = config.get_model_path(stage_name)
 
     if not os.path.exists(model_path):
         print(f"\nERROR: Model not found at {model_path}")
@@ -86,6 +114,10 @@ def main():
                         help='Directory containing GTM datasets (default: data)')
     parser.add_argument('--models-dir', type=str, default='models',
                         help='Directory containing trained models (default: models)')
+    parser.add_argument('--latest', action='store_true',
+                        help='Automatically use the most recent training run')
+    parser.add_argument('--run-folder', type=str, default=None,
+                        help='Specific training run folder to evaluate (absolute path)')
 
     args = parser.parse_args()
 
@@ -113,7 +145,9 @@ def main():
     # Evaluate each stage
     results = {}
     for stage in stages:
-        result = evaluate_stage(stage, config)
+        result = evaluate_stage(stage, config, 
+                               run_folder=args.run_folder, 
+                               use_latest=args.latest)
         if result is not None:
             results[stage] = result
 

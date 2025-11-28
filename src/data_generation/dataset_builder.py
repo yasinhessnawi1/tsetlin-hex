@@ -79,7 +79,7 @@ class DatasetBuilder:
         self,
         board_states: np.ndarray,
         winners: np.ndarray,
-        hypervector_size: int = 128,
+        hypervector_size: int = 256,
         hypervector_bits: int = 4,
         verbose: bool = True
     ) -> Tuple[Graphs, np.ndarray]:
@@ -206,7 +206,7 @@ class DatasetBuilder:
     def create_multiple_datasets(
         self,
         game_data: Dict,
-        hypervector_size: int = 128,
+        hypervector_size: int = 256,
         hypervector_bits: int = 4,
         verbose: bool = True
     ) -> Dict[str, Tuple[Graphs, np.ndarray]]:

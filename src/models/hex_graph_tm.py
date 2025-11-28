@@ -3,6 +3,7 @@ Graph Tsetlin Machine wrapper for Hex winner prediction.
 Configured for CUDA acceleration on 6GB GPU.
 """
 
+import os
 import numpy as np
 import pickle
 from typing import Tuple, Optional
@@ -156,42 +157,88 @@ class HexGraphTM:
     def save(self, filepath: str):
         """
         Save the model to disk.
-
+        
+        NOTE: This saves the model's learned state using the GTM's save() method,
+        which returns a dictionary containing all necessary state and config.
+        We embed this in our own save file along with HexGraphTM metadata.
+        
         Args:
             filepath: Path to save the model
         """
         if self.tm is None:
             raise ValueError("No model to save!")
-
+        
+        if not self.trained:
+            print("WARNING: Saving an untrained model!")
+        
+        # Extract the GTM state dictionary
+        # We use save() instead of get_state() because save() returns a dict
+        # that can be passed to load(), which handles full initialization (kernels, etc.)
+        try:
+            tm_state = self.tm.save() # Returns dict, doesn't write to file if fname=""
+        except AttributeError:
+            print("WARNING: save() not available. Attempting to pickle entire object.")
+            tm_state = None
+            
         save_data = {
             'params': self.params,
             'seed': self.seed,
             'trained': self.trained,
-            # Note: GTM doesn't have built-in save, so we save the whole object
-            'tm': self.tm
+            'tm_state': tm_state,
+            'has_state': tm_state is not None
         }
-
+        
         with open(filepath, 'wb') as f:
-            pickle.dump(save_data, f)
-
-        print(f"Model saved to {filepath}")
+            pickle.dump(save_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        
+        # Verify file was written
+        file_size = os.path.getsize(filepath)
+        print(f"Model saved to {filepath} ({file_size / 1024:.2f} KB)")
+        
+        if file_size < 100:
+            print("WARNING: Saved file is very small. This may indicate a serialization issue!")
 
     def load(self, filepath: str):
         """
         Load a model from disk.
-
+        
+        This reconstructs the GTM model from saved hyperparameters and learned state.
+        The model is recreated and the state is restored using tm.load().
+        
         Args:
             filepath: Path to load the model from
         """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Model file not found: {filepath}")
+            
         with open(filepath, 'rb') as f:
             save_data = pickle.load(f)
-
+        
         self.params = save_data['params']
         self.seed = save_data['seed']
         self.trained = save_data['trained']
-        self.tm = save_data['tm']
+        
+        # Recreate the TM with saved hyperparameters
+        self._create_tm()
+        
+        # Restore the learned state if available
+        if save_data.get('has_state', False) and save_data.get('tm_state') is not None:
+            try:
+                # Use load() with state_dict to restore state AND initialize kernels
+                self.tm.load(state_dict=save_data['tm_state'])
+                print(f"Model loaded from {filepath} with learned state restored")
+            except AttributeError:
+                print("WARNING: load() not available. Model loaded but state not restored.")
+                print("You may need to retrain the model.")
+                self.trained = False
+            except Exception as e:
+                print(f"WARNING: Failed to load GTM state: {e}")
+                self.trained = False
+        else:
+            print(f"Model loaded from {filepath} (hyperparameters only, no learned state)")
+            print("You will need to retrain the model.")
+            self.trained = False
 
-        print(f"Model loaded from {filepath}")
 
     def print_info(self):
         """Print model information."""

@@ -16,14 +16,16 @@ class Predictor:
     Manages training and evaluation of GTM models for Hex winner prediction.
     """
 
-    def __init__(self, model: HexGraphTM):
+    def __init__(self, model: HexGraphTM, logger=None):
         """
         Initialize the predictor.
 
         Args:
             model: HexGraphTM instance
+            logger: Optional TrainingLogger instance for structured logging
         """
         self.model = model
+        self.logger = logger
         self.training_history = []
 
     def train(
@@ -87,6 +89,10 @@ class Predictor:
                     'test_acc': test_acc,
                     'time': epoch_time
                 })
+                
+                # Log to TrainingLogger if available
+                if self.logger is not None:
+                    self.logger.log_epoch(epoch + 1, train_acc, test_acc, epoch_time)
 
                 print(f"Epoch {epoch + 1:3d}/{epochs}: "
                       f"Train = {train_acc:6.2f}%, "
@@ -100,12 +106,20 @@ class Predictor:
                     'test_acc': None,
                     'time': epoch_time
                 })
+                
+                # Log to TrainingLogger if available
+                if self.logger is not None:
+                    self.logger.log_epoch(epoch + 1, train_acc, None, epoch_time)
 
                 print(f"Epoch {epoch + 1:3d}/{epochs}: "
                       f"Train = {train_acc:6.2f}%, "
                       f"Time = {epoch_time:.2f}s")
 
         total_time = time.time() - start_time
+        
+        # Set total training time in logger
+        if self.logger is not None:
+            self.logger.set_total_training_time(total_time)
 
         print("\n" + "="*60)
         print("TRAINING COMPLETE")

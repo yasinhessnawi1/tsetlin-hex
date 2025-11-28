@@ -9,4 +9,8 @@ __pycache__/
 *.pywz
 *.pyzw
 
+# Virtual environments
+.venv/
+venv/
+
 plan.md

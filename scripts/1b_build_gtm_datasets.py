@@ -18,7 +18,7 @@ from src.utils import Config
 def main():
     parser = argparse.ArgumentParser(description='Build GTM-compatible datasets from C-generated games')
     parser.add_argument('--board-size', type=int, default=5, help='Board size')
-    parser.add_argument('--hypervector-size', type=int, default=128, help='Hypervector size')
+    parser.add_argument('--hypervector-size', type=int, default=256, help='Hypervector size')
     parser.add_argument('--hypervector-bits', type=int, default=4, help='Hypervector bits')
     parser.add_argument('--stages', type=str, default='all',
                         help='Which stages to process: "all" or comma-separated like "0,-2,-5"')
@@ -56,6 +56,9 @@ def main():
     for key in train_data.keys():
         if key.startswith('states_at_'):
             stage = key.replace('states_at_', '')
+            # Map '0' to 'end' for clarity
+            if stage == '0':
+                stage = 'end'
             available_stages.append(stage)
 
     if not available_stages:
@@ -96,8 +99,10 @@ def main():
         print(f"PROCESSING STAGE: {stage}")
         print("="*60)
 
-        train_boards = train_data[f'states_at_{stage}']
-        test_boards = test_data[f'states_at_{stage}']
+        # Map 'end' back to '0' for data access
+        data_stage = '0' if stage == 'end' else stage
+        train_boards = train_data[f'states_at_{data_stage}']
+        test_boards = test_data[f'states_at_{data_stage}']
 
         print(f"Train boards shape: {train_boards.shape}")
         print(f"Test boards shape: {test_boards.shape}")
