@@ -18,12 +18,52 @@ set "PATH=%MSVC_PATH%\bin\Hostx64\x64;%CUDA_PATH%\bin;%PATH%"
 REM Activate virtual environment
 call .\.venv\Scripts\activate.bat
 
-REM Run training
-python scripts\2_train_model.py --board-size 10 --stage end --epochs 100 --T 15000 --clauses 12000 --depth 6
+echo.
+echo ============================================================
+echo STEP 1: GENERATING TRAINING DATA (1M train + 200k test)
+echo ============================================================
+echo.
+
+python scripts\1_generate_games.py --board-size 10 --num-train 1000000 --num-test 200000 --save-states 0
+
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Data generation failed!
+    pause
+    exit /b 1
+)
 
 echo.
 echo ============================================================
-echo RUNNING EVALUATION
+echo STEP 2: BUILDING GTM DATASETS (Binary Encoding)
+echo ============================================================
+echo.
+
+python scripts\1b_build_gtm_datasets.py --board-size 10 --hypervector-size 256 --hypervector-bits 4 --stages end
+
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Dataset building failed!
+    pause
+    exit /b 1
+)
+
+echo.
+echo ============================================================
+echo STEP 3: TRAINING MODEL
+echo ============================================================
+echo.
+
+REM Run training with optimal hyperparameters
+python scripts\2_train_model.py --board-size 10 --stage end --epochs 100 --T 8000 --clauses 10000 --s 100 --depth 6
+
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Training failed!
+    pause
+    exit /b 1
+)
+
+echo.
+echo ============================================================
+echo STEP 4: EVALUATING MODEL
 echo ============================================================
 echo.
 

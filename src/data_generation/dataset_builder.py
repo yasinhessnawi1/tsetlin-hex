@@ -24,13 +24,16 @@ class DatasetBuilder:
         self.num_nodes = board_size * board_size
 
         # Define symbols for node properties
+        # BINARY ENCODING: Player1 inferred via (NOT-Empty AND NOT-Player0)
+        # This leverages TM's negation strength and reduces feature space
         # CRITICAL: Add position symbols so GTM knows which edge nodes are on!
         position_symbols = []
         for i in range(board_size):
             position_symbols.append(f'Row{i}')
             position_symbols.append(f'Col{i}')
         
-        self.symbols = ['Empty', 'Player0', 'Player1'] + position_symbols
+        # REMOVED: 'Player1' symbol (inferred via negation)
+        self.symbols = ['Empty', 'Player0'] + position_symbols
 
         # Pre-compute neighbor structure for hexagonal grid
         self._neighbor_map = self._build_neighbor_map()
@@ -169,17 +172,20 @@ class DatasetBuilder:
                     node_name = self._board_to_node_name(row, col)
                     cell_value = board[row, col]
 
-                    # Map cell value to symbol
+                    # Map cell value to symbol (BINARY ENCODING)
                     if cell_value == 0:
                         symbol = 'Empty'
+                        graphs.add_graph_node_property(graph_id, node_name, symbol)
                     elif cell_value == 1:
                         symbol = 'Player0'
+                        graphs.add_graph_node_property(graph_id, node_name, symbol)
                     elif cell_value == 2:
-                        symbol = 'Player1'
+                        # Player1 (Blue): NO piece property added!
+                        # GTM will infer via negation: NOT-Empty AND NOT-Player0
+                        # This forces optimal use of TM's negation capabilities
+                        pass  # Skip property assignment for Player1
                     else:
                         raise ValueError(f"Invalid cell value: {cell_value}")
-
-                    graphs.add_graph_node_property(graph_id, node_name, symbol)
                     
                     # CRITICAL FIX: Add position information!
                     # This tells GTM which edge the node is on

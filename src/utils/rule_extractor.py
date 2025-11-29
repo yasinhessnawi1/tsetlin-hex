@@ -111,6 +111,14 @@ class RuleExtractor:
         if not conditions:
             return ""
         
+        # BINARY ENCODING: Add interpretation hint for Player1 inference
+        # If both NOT-Player0 and NOT-Empty, this implies Player1 (Blue piece)
+        has_not_player0 = any('NOT Player0' in str(c) for c in conditions)
+        has_not_empty = any('NOT Empty' in str(c) for c in conditions)
+        
+        if has_not_player0 and has_not_empty:
+            conditions.append("(→ Player1 inferred)")
+        
         # Format the rule
         polarity = "positive" if weight > 0 else "negative"
         class_name = f"Player {class_idx}"
