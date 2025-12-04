@@ -46,18 +46,20 @@ echo Results will be saved to: %RESULTS_DIR%
 echo.
 
 echo ============================================================
-echo EXPERIMENT 2.1: Depth-Diverse Composite
+echo EXPERIMENT 2.1: Depth-Diverse Composite (UPDATED)
 echo ============================================================
 echo.
-echo Baseline: 200 clauses, depth=3
-echo Composite: 4 specialists x 50 clauses = 200 total
-echo   - Shallow (depth=2): Local patterns
-echo   - Medium (depth=3): Regional patterns
-echo   - Deep (depth=4): Long-range patterns
-echo   - Very Deep (depth=5): Global connectivity
+echo Baseline: 800 clauses, depth=3, T=10000
+echo Composite: 4 specialists x 200 clauses = 800 total
+echo   - Depth 1 (weight=1.2): Very local patterns
+echo   - Depth 2 (weight=1.0): Local patterns
+echo   - Depth 3 (weight=0.8): Regional patterns
+echo   - Depth 4 (weight=0.6): Long-range patterns
+echo.
+echo Using T=10000 (best from Phase 1) instead of T=15000
 echo.
 
-python scripts/test_tm_composite.py --board-size 5 --stage end --epochs 100 --baseline-clauses 200 --composite-clauses 50 --composite-type depth > %RESULTS_DIR%\exp2_1_depth_composite.log 2>&1
+python scripts/test_tm_composite.py --board-size 5 --stage end --epochs 100 --baseline-clauses 800 --composite-clauses 200 --composite-type depth > %RESULTS_DIR%\exp2_1_depth_composite.log 2>&1
 
 echo.
 echo [OK] Experiment 2.1 complete

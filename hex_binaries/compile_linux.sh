@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Change to hex_binaries directory (where this script is located)
+cd "$(dirname "$0")"
+
 echo "============================================================"
 echo "COMPILING HEX GAME GENERATOR FOR LINUX"
 echo "============================================================"

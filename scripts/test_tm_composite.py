@@ -50,7 +50,7 @@ def test_baseline(train_graphs, train_labels, test_graphs, test_labels,
 
     model = HexGraphTM(
         number_of_clauses=clauses,
-        T=15000,
+        T=10000,  # Updated from 15000 (best from Phase 1)
         s=10.0,
         depth=3,
         message_size=256,

@@ -19,14 +19,14 @@ echo ============================================================
 echo STEP 1: CHECKING C EXECUTABLE FOR 7x7
 echo ============================================================
 
-if not exist "hex_datagen_7x7.exe" (
+if not exist "hex_binaries\hex_datagen_7x7.exe" (
     echo Compiling hex_datagen_stages.c for 7x7...
 
     REM Set up MSVC environment
     set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community"
     call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" > nul 2>&1
 
-    cl /O2 /DBOARD_DIM=7 hex_datagen_stages.c /Fe:hex_datagen_7x7.exe > nul 2>&1
+    cl /O2 /DBOARD_DIM=7 hex_binaries\hex_datagen_stages.c /Fe:hex_binaries\hex_datagen_7x7.exe > nul 2>&1
 
     if %ERRORLEVEL% NEQ 0 (
         echo ERROR: Compilation failed!

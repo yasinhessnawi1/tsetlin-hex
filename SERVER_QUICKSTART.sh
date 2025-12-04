@@ -79,7 +79,7 @@ if [ $DATA_CHECK -eq 1 ]; then
         rm -f data/*5x5*
 
         echo "Recompiling C code with bug fix..."
-        ./compile_linux.sh
+        ./hex_binaries/compile_linux.sh
 
         echo "Generating 1M training games..."
         ./generate_5x5_data.sh
@@ -166,16 +166,4 @@ echo ""
 echo "============================================================"
 echo "TRAINING COMPLETE!"
 echo "============================================================"
-echo ""
-echo "Review the accuracies above."
-echo ""
-echo "If ALL THREE stages hit 100.00%:"
-echo "  - Record your clause count"
-echo "  - Try binary search to find minimum"
-echo "  - Then scale to 7x7 board!"
-echo ""
-echo "If ANY stage < 100%:"
-echo "  - Increase clauses for that stage"
-echo "  - Or generate more data (5M games)"
-echo ""
-echo "Good luck! 🎯"
+

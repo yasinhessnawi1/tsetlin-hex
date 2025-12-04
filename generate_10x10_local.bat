@@ -24,7 +24,7 @@ set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community"
 call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" > nul 2>&1
 
 echo Compiling hex_datagen_stages.c for 10x10...
-cl /O2 /DBOARD_DIM=10 hex_datagen_stages.c /Fe:hex_datagen_10x10.exe > nul 2>&1
+cl /O2 /DBOARD_DIM=10 hex_binaries\hex_datagen_stages.c /Fe:hex_binaries\hex_datagen_10x10.exe > nul 2>&1
 
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Compilation failed!

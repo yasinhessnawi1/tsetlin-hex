@@ -178,14 +178,16 @@ def create_depth_diverse_composite(base_clauses: int = 50, grid=(208, 1, 1), blo
     """
     Create composite with specialists at different depths.
     Good for capturing patterns at different scales.
+
+    Updated: depth 1-4, weights 1.2 → 1.0 → 0.8 → 0.6
     """
     composite = HexTMComposite(grid=grid, block=block)
 
     configs = [
-        SpecialistConfig("shallow", clauses=base_clauses, depth=2, s=10.0, T=15000, weight=0.8),
-        SpecialistConfig("medium", clauses=base_clauses, depth=3, s=10.0, T=15000, weight=1.0),
-        SpecialistConfig("deep", clauses=base_clauses, depth=4, s=10.0, T=15000, weight=1.2),
-        SpecialistConfig("very_deep", clauses=base_clauses, depth=5, s=10.0, T=15000, weight=1.0),
+        SpecialistConfig("depth_1", clauses=base_clauses, depth=1, s=10.0, T=10000, weight=1.2),
+        SpecialistConfig("depth_2", clauses=base_clauses, depth=2, s=10.0, T=10000, weight=1.0),
+        SpecialistConfig("depth_3", clauses=base_clauses, depth=3, s=10.0, T=10000, weight=0.8),
+        SpecialistConfig("depth_4", clauses=base_clauses, depth=4, s=10.0, T=10000, weight=0.6),
     ]
 
     for config in configs:

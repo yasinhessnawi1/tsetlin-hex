@@ -1,6 +1,9 @@
 @echo off
 echo Compiling hex_datagen_stages.c for multi-stage data generation...
 
+REM Change to hex_binaries directory (where this script is located)
+cd /d "%~dp0"
+
 REM Set up MSVC environment
 set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community"
 call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"

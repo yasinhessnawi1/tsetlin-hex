@@ -23,23 +23,23 @@ def generate_games_with_stages(board_size: int, num_games: int, output_file: str
     is_windows = platform.system() == 'Windows'
 
     if board_size == 5:
-        exe_name = "hex_datagen_5x5.exe" if is_windows else "./hex_datagen_5x5"
+        exe_name = os.path.join("hex_binaries", "hex_datagen_5x5.exe" if is_windows else "hex_datagen_5x5")
     elif board_size == 7:
-        exe_name = "hex_datagen_7x7.exe" if is_windows else "./hex_datagen_7x7"
+        exe_name = os.path.join("hex_binaries", "hex_datagen_7x7.exe" if is_windows else "hex_datagen_7x7")
     elif board_size == 10:
-        exe_name = "hex_datagen_10x10.exe" if is_windows else "./hex_datagen_10x10"
+        exe_name = os.path.join("hex_binaries", "hex_datagen_10x10.exe" if is_windows else "hex_datagen_10x10")
     elif board_size == 11:
-        exe_name = "hex_datagen_11x11.exe" if is_windows else "./hex_datagen_11x11"
+        exe_name = os.path.join("hex_binaries", "hex_datagen_11x11.exe" if is_windows else "hex_datagen_11x11")
     else:
         print(f"ERROR: Unsupported board size {board_size}")
         return False
 
-    if not os.path.exists(exe_name.replace('./', '')):
+    if not os.path.exists(exe_name):
         print(f"ERROR: {exe_name} not found!")
         if is_windows:
-            print("Please compile with: compile_datagen.bat")
+            print("Please compile with: hex_binaries\\compile_datagen.bat")
         else:
-            print("Please compile with: ./compile_linux.sh")
+            print("Please compile with: ./hex_binaries/compile_linux.sh")
         return False
 
     print(f"\nRunning {exe_name}...")

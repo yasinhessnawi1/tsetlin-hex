@@ -1,6 +1,9 @@
 @echo off
 echo Compiling hex.c to shared library...
 
+REM Change to hex_binaries directory (where this script is located)
+cd /d "%~dp0"
+
 REM Set up MSVC environment
 set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community"
 set "MSVC_PATH=%VS_PATH%\VC\Tools\MSVC\14.39.33519"
