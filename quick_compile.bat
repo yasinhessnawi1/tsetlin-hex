@@ -3,12 +3,12 @@ set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community"
 call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" > nul 2>&1
 
 echo Compiling hex_datagen_stages.c for 5x5...
-cl /O2 /DBOARD_DIM=5 hex_datagen_stages.c /Fe:hex_datagen_5x5.exe
+cl /O2 /DBOARD_DIM=5 hex_binaries\hex_datagen_stages.c /Fe:hex_binaries\hex_datagen_5x5.exe
 
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo Success! Testing with 100 games...
-    hex_datagen_5x5.exe 100 0 -2 -5 > test_100games.csv 2>&1
+    hex_binaries\hex_datagen_5x5.exe 100 0 -2 -5 > test_100games.csv 2>&1
 
     echo.
     echo Analyzing results...

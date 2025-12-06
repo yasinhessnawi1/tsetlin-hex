@@ -9,9 +9,6 @@ from .tm_composite import (
     create_specificity_diverse_composite,
     create_mixed_composite
 )
-from .weighted_gtm import WeightedGTM, create_weighted_gtm
-from .drop_clause_gtm import DropClauseGTM, create_drop_clause_gtm
-from .coalesced_gtm import CoalescedGTM, create_coalesced_gtm
 
 __all__ = [
     'HexGraphTM',
@@ -20,11 +17,5 @@ __all__ = [
     'SpecialistConfig',
     'create_depth_diverse_composite',
     'create_specificity_diverse_composite',
-    'create_mixed_composite',
-    'WeightedGTM',
-    'create_weighted_gtm',
-    'DropClauseGTM',
-    'create_drop_clause_gtm',
-    'CoalescedGTM',
-    'create_coalesced_gtm'
+    'create_mixed_composite'
 ]

@@ -174,20 +174,36 @@ class HexTMComposite:
 
 # Predefined composite configurations
 
-def create_depth_diverse_composite(base_clauses: int = 50, grid=(208, 1, 1), block=(128, 1, 1)) -> HexTMComposite:
+def create_depth_diverse_composite(
+    base_clauses: int = 50,
+    T: int = 10000,
+    s: float = 10.0,
+    message_size: int = 256,
+    message_bits: int = 2,
+    grid=(208, 1, 1),
+    block=(128, 1, 1)
+) -> HexTMComposite:
     """
     Create composite with specialists at different depths.
     Good for capturing patterns at different scales.
 
-    Updated: depth 1-4, weights 1.2 → 1.0 → 0.8 → 0.6
+    Diversifies depth while keeping s and T constant:
+    - depth 1: Very local patterns (immediate neighbors)
+    - depth 2: Local patterns (2-hop neighborhood)
+    - depth 3: Regional patterns (3-hop neighborhood)
+    - depth 4: Long-range patterns (4-hop neighborhood)
     """
     composite = HexTMComposite(grid=grid, block=block)
 
     configs = [
-        SpecialistConfig("depth_1", clauses=base_clauses, depth=1, s=10.0, T=10000, weight=1.2),
-        SpecialistConfig("depth_2", clauses=base_clauses, depth=2, s=10.0, T=10000, weight=1.0),
-        SpecialistConfig("depth_3", clauses=base_clauses, depth=3, s=10.0, T=10000, weight=0.8),
-        SpecialistConfig("depth_4", clauses=base_clauses, depth=4, s=10.0, T=10000, weight=0.6),
+        SpecialistConfig("depth_1", clauses=base_clauses, depth=1, s=s, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
+        SpecialistConfig("depth_2", clauses=base_clauses, depth=2, s=s, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
+        SpecialistConfig("depth_3", clauses=base_clauses, depth=3, s=s, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
+        SpecialistConfig("depth_4", clauses=base_clauses, depth=4, s=s, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
     ]
 
     for config in configs:
@@ -196,18 +212,36 @@ def create_depth_diverse_composite(base_clauses: int = 50, grid=(208, 1, 1), blo
     return composite
 
 
-def create_specificity_diverse_composite(base_clauses: int = 50, grid=(208, 1, 1), block=(128, 1, 1)) -> HexTMComposite:
+def create_specificity_diverse_composite(
+    base_clauses: int = 50,
+    T: int = 10000,
+    depth: int = 3,
+    message_size: int = 256,
+    message_bits: int = 2,
+    grid=(208, 1, 1),
+    block=(128, 1, 1)
+) -> HexTMComposite:
     """
     Create composite with specialists at different specificities.
     Good for capturing both general and specific patterns.
+
+    Diversifies specificity (s) while keeping depth and T constant:
+    - s=5.0: Coarse patterns (general, more tolerant)
+    - s=10.0: Medium specificity (balanced)
+    - s=15.0: Fine patterns (more specific)
+    - s=20.0: Very fine patterns (very specific)
     """
     composite = HexTMComposite(grid=grid, block=block)
 
     configs = [
-        SpecialistConfig("coarse", clauses=base_clauses, depth=3, s=5.0, T=15000, weight=0.8),
-        SpecialistConfig("medium", clauses=base_clauses, depth=3, s=10.0, T=15000, weight=1.0),
-        SpecialistConfig("fine", clauses=base_clauses, depth=3, s=15.0, T=15000, weight=1.0),
-        SpecialistConfig("very_fine", clauses=base_clauses, depth=3, s=20.0, T=15000, weight=0.8),
+        SpecialistConfig("coarse_s5", clauses=base_clauses, depth=depth, s=5.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
+        SpecialistConfig("medium_s10", clauses=base_clauses, depth=depth, s=10.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
+        SpecialistConfig("fine_s15", clauses=base_clauses, depth=depth, s=15.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
+        SpecialistConfig("very_fine_s20", clauses=base_clauses, depth=depth, s=20.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.0),
     ]
 
     for config in configs:
@@ -216,19 +250,38 @@ def create_specificity_diverse_composite(base_clauses: int = 50, grid=(208, 1, 1
     return composite
 
 
-def create_mixed_composite(base_clauses: int = 40, grid=(208, 1, 1), block=(128, 1, 1)) -> HexTMComposite:
+def create_mixed_composite(
+    base_clauses: int = 40,
+    T: int = 10000,
+    message_size: int = 256,
+    message_bits: int = 2,
+    grid=(208, 1, 1),
+    block=(128, 1, 1)
+) -> HexTMComposite:
     """
     Create composite with mixed depth and specificity diversity.
-    Most robust approach.
+    Most robust approach - combines both depth and s variation.
+
+    5 specialists with different depth + s combinations:
+    - Shallow + general (depth=2, s=5.0)
+    - Shallow + balanced (depth=2, s=10.0)
+    - Medium + balanced (depth=3, s=10.0) - highest weight
+    - Medium + specific (depth=3, s=15.0)
+    - Deep + balanced (depth=4, s=10.0)
     """
     composite = HexTMComposite(grid=grid, block=block)
 
     configs = [
-        SpecialistConfig("shallow_general", clauses=base_clauses, depth=2, s=5.0, T=15000, weight=0.9),
-        SpecialistConfig("medium_balanced", clauses=base_clauses, depth=3, s=10.0, T=15000, weight=1.0),
-        SpecialistConfig("deep_balanced", clauses=base_clauses, depth=4, s=10.0, T=15000, weight=1.1),
-        SpecialistConfig("medium_specific", clauses=base_clauses, depth=3, s=15.0, T=15000, weight=0.9),
-        SpecialistConfig("deep_specific", clauses=base_clauses, depth=4, s=15.0, T=15000, weight=1.0),
+        SpecialistConfig("d2_s5", clauses=base_clauses, depth=1, s=5.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=0.8),
+        SpecialistConfig("d2_s10", clauses=base_clauses, depth=2, s=1.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=0.9),
+        SpecialistConfig("d3_s1", clauses=base_clauses, depth=3, s=1.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=1.2),
+        SpecialistConfig("d3_s15", clauses=base_clauses, depth=5, s=10.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=0.9),
+        SpecialistConfig("d4_s10", clauses=base_clauses, depth=1, s=10.0, T=T,
+                        message_size=message_size, message_bits=message_bits, weight=0.8),
     ]
 
     for config in configs:

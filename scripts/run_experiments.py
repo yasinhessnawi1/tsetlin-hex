@@ -109,6 +109,15 @@ class ExperimentRunner:
         train_path = f"{data_dir}/train_gtm_{self.board_size}x{self.board_size}_{stage}.pkl"
         test_path = f"{data_dir}/test_gtm_{self.board_size}x{self.board_size}_{stage}.pkl"
 
+        # Fallback: if stage is "end" or "0" and file not found, try the other
+        if not os.path.exists(train_path) and stage in ["end", "0"]:
+            alt_stage = "0" if stage == "end" else "end"
+            alt_train_path = f"{data_dir}/train_gtm_{self.board_size}x{self.board_size}_{alt_stage}.pkl"
+            if os.path.exists(alt_train_path):
+                print(f"[INFO] File not found with stage '{stage}', using '{alt_stage}' instead")
+                train_path = alt_train_path
+                test_path = f"{data_dir}/test_gtm_{self.board_size}x{self.board_size}_{alt_stage}.pkl"
+
         if not os.path.exists(train_path):
             print(f"ERROR: Training dataset not found: {train_path}")
             return None
@@ -169,68 +178,101 @@ class ExperimentRunner:
 
     def run_phase_1_experiment_1(self, stage: str = 'end'):
         """
-        Phase 1, Experiment 1: Find minimum clauses baseline
-        Vary: clauses = [100, 200, 300, 400, 500]
-        Fixed: s=10.0, T=15000, depth=3
+        Phase 1, Experiment 1: Optimize clause count, threshold, and message parameters
+        Vary: clauses = [400, 800, 1200]
+              T = [5000, 10000, 15000, 20000]
+              message_size = [256, 512]
+              message_bits = [2, 4]
+        Fixed: depth=3 (known best)
+               s = clauses/100 (adaptive specificity)
         """
         print(f"\n{'#'*60}")
-        print(f"PHASE 1 - EXPERIMENT 1: Minimum Clauses Baseline")
+        print(f"PHASE 1 - EXPERIMENT 1: Comprehensive Optimization")
+        print(f"Strategy: s = clauses/100 (adaptive specificity)")
+        print(f"Fixed: depth=3 (known best)")
         print(f"{'#'*60}\n")
 
-        clause_counts = [100, 200, 300, 400, 500]
-        base_params = {
-            's': 10.0,
-            'T': 15000,
-            'depth': 3,
-            'message_size': 256,
-            'message_bits': 2,
-            'max_included_literals': 255
-        }
+        # Reduced clause counts to compensate for added message parameters
+        clause_counts = [400, 800, 1200]
+        T_values = [5000, 10000, 15000, 20000]
+        message_sizes = [256, 512]
+        message_bits = [2, 4]
 
+        total_experiments = len(clause_counts) * len(T_values) * len(message_sizes) * len(message_bits)
+        print(f"Total experiments: {total_experiments}")
+        print(f"Estimated time: {total_experiments * 5 / 60:.1f} - {total_experiments * 10 / 60:.1f} minutes\n")
+
+        experiment_num = 0
         for clauses in clause_counts:
-            params = base_params.copy()
-            params['number_of_clauses'] = clauses
+            for T in T_values:
+                for msg_size in message_sizes:
+                    for msg_bits in message_bits:
+                        experiment_num += 1
 
-            self.run_single_experiment(
-                name=f"P1E1_clauses_{clauses}",
-                stage=stage,
-                model_params=params,
-                epochs=100,
-                test_every=10
-            )
+                        params = {
+                            'number_of_clauses': clauses,
+                            'T': T,
+                            's': clauses / 100.0,  # Adaptive specificity
+                            'depth': 3,
+                            'message_size': msg_size,
+                            'message_bits': msg_bits,
+                            'max_included_literals': 255
+                        }
 
-    def run_phase_1_experiment_2(self, stage: str = 'end', optimal_clauses: int = 200):
+                        print(f"\n[{experiment_num}/{total_experiments}] Testing configuration...")
+
+                        self.run_single_experiment(
+                            name=f"P1E1_c{clauses}_T{T}_m{msg_size}_b{msg_bits}",
+                            stage=stage,
+                            model_params=params,
+                            epochs=30,
+                            test_every=5
+                        )
+
+    def run_phase_1_experiment_2(self, stage: str = 'end'):
         """
-        Phase 1, Experiment 2: Optimize specificity
-        Vary: s = [5.0, 10.0, 15.0, 20.0, 25.0]
-        Fixed: clauses=optimal_clauses (from Exp 1), T=15000, depth=3
+        Phase 1, Experiment 2: Fine-tune around best config from Exp 1
+        This is a focused search around the best performing configuration.
+        Use after identifying optimal clauses and T from Experiment 1.
         """
         print(f"\n{'#'*60}")
-        print(f"PHASE 1 - EXPERIMENT 2: Optimize Specificity (s)")
-        print(f"Using clauses={optimal_clauses} from Experiment 1")
+        print(f"PHASE 1 - EXPERIMENT 2: Fine-tuning")
+        print(f"Note: Run Experiment 1 first, then update this function")
+        print(f"      with optimal clauses and T values")
         print(f"{'#'*60}\n")
 
-        s_values = [5.0, 10.0, 15.0, 20.0, 25.0]
+        # Example: Fine-tune around clauses=800, T=10000
+        # Update these based on Experiment 1 results
+        best_clauses = 800
+        best_T = 10000
+
+        # Test slight variations
+        clause_variations = [best_clauses - 200, best_clauses, best_clauses + 200]
+        T_variations = [best_T - 2000, best_T, best_T + 2000]
+        s_variations = [5.0, 7.0, 10.0]  # Test different specificity values
+
         base_params = {
-            'number_of_clauses': optimal_clauses,
-            'T': 15000,
             'depth': 3,
             'message_size': 256,
             'message_bits': 2,
             'max_included_literals': 255
         }
 
-        for s in s_values:
-            params = base_params.copy()
-            params['s'] = s
+        for clauses in clause_variations:
+            for T in T_variations:
+                for s in s_variations:
+                    params = base_params.copy()
+                    params['number_of_clauses'] = clauses
+                    params['T'] = T
+                    params['s'] = s
 
-            self.run_single_experiment(
-                name=f"P1E2_s_{s}",
-                stage=stage,
-                model_params=params,
-                epochs=100,
-                test_every=10
-            )
+                    self.run_single_experiment(
+                        name=f"P1E2_c{clauses}_T{T}_s{s:.1f}",
+                        stage=stage,
+                        model_params=params,
+                        epochs=100,
+                        test_every=10
+                    )
 
     def run_phase_1_experiment_3(self, stage: str = 'end', optimal_clauses: int = 200, optimal_s: float = 10.0):
         """
@@ -320,13 +362,14 @@ class ExperimentRunner:
         # Sort by test accuracy
         sorted_results = sorted(self.results, key=lambda x: x['test_accuracy'], reverse=True)
 
-        print(f"\n{'Name':<25} {'Clauses':<10} {'Train%':<10} {'Test%':<10} {'Eff':<10}")
-        print('-' * 65)
+        print(f"\n{'Name':<30} {'Clauses':<8} {'MsgSize':<8} {'MsgBits':<8} {'Test%':<10} {'Eff':<10}")
+        print('-' * 74)
 
         for r in sorted_results:
-            print(f"{r['name']:<25} {r['clauses']:<10} "
-                  f"{r['train_accuracy']:<10.2f} {r['test_accuracy']:<10.2f} "
-                  f"{r['efficiency']:<10.4f}")
+            msg_size = r['params'].get('message_size', 'N/A')
+            msg_bits = r['params'].get('message_bits', 'N/A')
+            print(f"{r['name']:<30} {r['clauses']:<8} {msg_size:<8} {msg_bits:<8} "
+                  f"{r['test_accuracy']:<10.2f} {r['efficiency']:<10.4f}")
 
         # Best results
         best_acc = sorted_results[0]
@@ -402,29 +445,31 @@ Examples:
 
     # Run experiments
     if args.phase == 1:
-        if args.all or args.experiment == 1:
+        if args.all:
+            # Run all available Phase 1 experiments
+            runner.run_phase_1_experiment_1(stage=args.stage)
+            print("\n[INFO] Phase 1 Experiment 2 available for fine-tuning after reviewing Exp 1 results")
+
+        elif args.experiment == 1:
             runner.run_phase_1_experiment_1(stage=args.stage)
 
-        if args.all or args.experiment == 2:
-            runner.run_phase_1_experiment_2(
-                stage=args.stage,
-                optimal_clauses=args.optimal_clauses
-            )
+        elif args.experiment == 2:
+            runner.run_phase_1_experiment_2(stage=args.stage)
 
-        if args.all or args.experiment == 3:
-            runner.run_phase_1_experiment_3(
-                stage=args.stage,
-                optimal_clauses=args.optimal_clauses,
-                optimal_s=args.optimal_s
-            )
+        elif args.experiment == 3:
+            runner.run_phase_1_experiment_3(stage=args.stage)
 
-        if args.all or args.experiment == 4:
-            runner.run_phase_1_experiment_4(
-                stage=args.stage,
-                optimal_clauses=args.optimal_clauses,
-                optimal_s=args.optimal_s,
-                optimal_T=args.optimal_T
-            )
+        elif args.experiment == 4:
+            runner.run_phase_1_experiment_4(stage=args.stage)
+
+        else:
+            print(f"Unknown experiment number: {args.experiment}")
+            print("Available Phase 1 experiments:")
+            print("  1: Clause count & threshold optimization (main experiment)")
+            print("  2: Fine-tuning around best config from Exp 1")
+            print("  3: DEPRECATED (use Exp 1)")
+            print("  4: DEPRECATED (depth=3 is optimal)")
+            return
 
     else:
         print(f"Phase {args.phase} experiments not yet implemented.")

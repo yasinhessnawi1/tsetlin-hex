@@ -97,7 +97,25 @@ def generate_games_with_stages(board_size: int, num_games: int, output_file: str
         # Convert boards to numpy arrays
         boards_arrays = [np.array(boards, dtype=np.int8) for boards in boards_by_stage]
 
-        print(f"\nData summary:")
+        print(f"\nData summary (before balancing):")
+        print(f"  Total games: {len(winners)}")
+        print(f"  Player 0 wins: {np.sum(winners == 0)} ({100*np.sum(winners == 0)/len(winners):.1f}%)")
+        print(f"  Player 1 wins: {np.sum(winners == 1)} ({100*np.sum(winners == 1)/len(winners):.1f}%)")
+
+        # BALANCE DATA: Undersample to equal class distribution
+        p0_indices = np.where(winners == 0)[0]
+        p1_indices = np.where(winners == 1)[0]
+
+        # Take equal numbers from each class
+        min_count = min(len(p0_indices), len(p1_indices))
+        balanced_indices = np.concatenate([p0_indices[:min_count], p1_indices[:min_count]])
+        np.random.shuffle(balanced_indices)
+
+        # Apply balancing
+        winners = winners[balanced_indices]
+        boards_arrays = [boards[balanced_indices] for boards in boards_arrays]
+
+        print(f"\nData summary (after balancing):")
         print(f"  Total games: {len(winners)}")
         print(f"  Player 0 wins: {np.sum(winners == 0)} ({100*np.sum(winners == 0)/len(winners):.1f}%)")
         print(f"  Player 1 wins: {np.sum(winners == 1)} ({100*np.sum(winners == 1)/len(winners):.1f}%)")

@@ -13,6 +13,17 @@ import pickle
 if 'CUDA_VISIBLE_DEVICES' not in os.environ:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
+# CRITICAL: Disable CUDA cache to prevent nvcc compilation issues
+os.environ['CUDA_CACHE_DISABLE'] = '1'
+
+# CRITICAL: Force CUDA initialization BEFORE importing GraphTsetlinMachine
+try:
+    import pycuda.driver as cuda
+    import pycuda.autoinit  # This forces full CUDA initialization
+except Exception as e:
+    print(f"[WARNING] CUDA pre-initialization failed: {e}")
+    print("Proceeding anyway - GraphTsetlinMachine will try to initialize CUDA...")
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.models import (
@@ -29,6 +40,15 @@ def load_data(board_size, stage, data_dir='data'):
     train_path = f"{data_dir}/train_gtm_{board_size}x{board_size}_{stage}.pkl"
     test_path = f"{data_dir}/test_gtm_{board_size}x{board_size}_{stage}.pkl"
 
+    # Fallback: if stage is "end" or "0" and file not found, try the other
+    if not os.path.exists(train_path) and stage in ["end", "0"]:
+        alt_stage = "0" if stage == "end" else "end"
+        alt_train_path = f"{data_dir}/train_gtm_{board_size}x{board_size}_{alt_stage}.pkl"
+        if os.path.exists(alt_train_path):
+            print(f"[INFO] File not found with stage '{stage}', using '{alt_stage}' instead")
+            train_path = alt_train_path
+            test_path = f"{data_dir}/test_gtm_{board_size}x{board_size}_{alt_stage}.pkl"
+
     print(f"Loading {train_path}...")
     with open(train_path, 'rb') as f:
         train_data = pickle.load(f)
@@ -42,7 +62,7 @@ def load_data(board_size, stage, data_dir='data'):
 
 
 def test_baseline(train_graphs, train_labels, test_graphs, test_labels,
-                  clauses=200, epochs=100):
+                  clauses=200, epochs=200, T=10000, s=10.0, depth=3):
     """Test baseline single model."""
     print(f"\n{'='*60}")
     print(f"BASELINE: Single Model ({clauses} clauses)")
@@ -50,12 +70,14 @@ def test_baseline(train_graphs, train_labels, test_graphs, test_labels,
 
     model = HexGraphTM(
         number_of_clauses=clauses,
-        T=10000,  # Updated from 15000 (best from Phase 1)
-        s=10.0,
-        depth=3,
+        T=T,
+        s=s,
+        depth=depth,
         message_size=256,
         message_bits=2,
-        max_included_literals=255
+        max_included_literals=255,
+        grid=(208, 1, 1),
+        block=(128, 1, 1)
     )
 
     print(f"Training for {epochs} epochs...")
@@ -76,18 +98,36 @@ def test_baseline(train_graphs, train_labels, test_graphs, test_labels,
 
 
 def test_composite(train_graphs, train_labels, test_graphs, test_labels,
-                   composite_type='depth', base_clauses=50, epochs=100):
+                   composite_type='depth', base_clauses=50, epochs=100,
+                   T=10000, s=10.0, depth=3):
     """Test composite model."""
     print(f"\n{'='*60}")
     print(f"COMPOSITE: {composite_type.upper()} Diverse")
     print(f"{'='*60}\n")
 
     if composite_type == 'depth':
-        composite = create_depth_diverse_composite(base_clauses=base_clauses)
+        composite = create_depth_diverse_composite(
+            base_clauses=base_clauses,
+            T=T,
+            s=s,
+            message_size=256,
+            message_bits=2
+        )
     elif composite_type == 'specificity':
-        composite = create_specificity_diverse_composite(base_clauses=base_clauses)
+        composite = create_specificity_diverse_composite(
+            base_clauses=base_clauses,
+            T=T,
+            depth=depth,
+            message_size=256,
+            message_bits=2
+        )
     elif composite_type == 'mixed':
-        composite = create_mixed_composite(base_clauses=base_clauses)
+        composite = create_mixed_composite(
+            base_clauses=base_clauses,
+            T=T,
+            message_size=256,
+            message_bits=2
+        )
     else:
         raise ValueError(f"Unknown composite type: {composite_type}")
 
@@ -115,12 +155,18 @@ def main():
                         help='Board size (default: 5)')
     parser.add_argument('--stage', type=str, default='end',
                         help='Game stage (default: end)')
-    parser.add_argument('--epochs', type=int, default=100,
-                        help='Training epochs (default: 100)')
+    parser.add_argument('--epochs', type=int, default=200,
+                        help='Training epochs (default: 200)')
     parser.add_argument('--baseline-clauses', type=int, default=200,
                         help='Clauses for baseline model (default: 200)')
     parser.add_argument('--composite-clauses', type=int, default=50,
                         help='Clauses per specialist (default: 50)')
+    parser.add_argument('--T', type=int, default=10000,
+                        help='Threshold T (default: 10000)')
+    parser.add_argument('--s', type=float, default=10.0,
+                        help='Specificity s (default: 10.0)')
+    parser.add_argument('--depth', type=int, default=3,
+                        help='Depth (default: 3)')
     parser.add_argument('--composite-type', type=str, default='depth',
                         choices=['depth', 'specificity', 'mixed'],
                         help='Type of composite (default: depth)')
@@ -149,11 +195,25 @@ def main():
     print(f"  Training samples: {len(train_labels)}")
     print(f"  Test samples: {len(test_labels)}")
 
+    # Show class distribution
+    import numpy as np
+    train_p0 = np.sum(train_labels == 0)
+    train_p1 = np.sum(train_labels == 1)
+    test_p0 = np.sum(test_labels == 0)
+    test_p1 = np.sum(test_labels == 1)
+
+    print(f"\nClass distribution:")
+    print(f"  Train: P0={train_p0} ({100*train_p0/len(train_labels):.1f}%), P1={train_p1} ({100*train_p1/len(train_labels):.1f}%)")
+    print(f"  Test:  P0={test_p0} ({100*test_p0/len(test_labels):.1f}%), P1={test_p1} ({100*test_p1/len(test_labels):.1f}%)")
+
     # Test baseline
     baseline_acc = test_baseline(
         train_graphs, train_labels, test_graphs, test_labels,
         clauses=args.baseline_clauses,
-        epochs=args.epochs
+        epochs=args.epochs,
+        T=args.T,
+        s=args.s,
+        depth=args.depth
     )
 
     # Test composite
@@ -161,7 +221,10 @@ def main():
         train_graphs, train_labels, test_graphs, test_labels,
         composite_type=args.composite_type,
         base_clauses=args.composite_clauses,
-        epochs=args.epochs
+        epochs=args.epochs,
+        T=args.T,
+        s=args.s,
+        depth=args.depth
     )
 
     # Summary

@@ -58,12 +58,22 @@ def train_stage(
     print(f"TRAINING MODEL FOR STAGE: {stage_name}")
     print("="*60)
 
-    # Load datasets
+    # Load datasets with fallback for "end" -> "0" naming
     train_path = f"{config.data_dir}/train_gtm_{config.board_size}x{config.board_size}_{stage_name}.pkl"
     test_path = f"{config.data_dir}/test_gtm_{config.board_size}x{config.board_size}_{stage_name}.pkl"
 
+    # Fallback: if stage is "end" and file not found, try "0"
+    if not os.path.exists(train_path) and stage_name == "end":
+        alt_train_path = f"{config.data_dir}/train_gtm_{config.board_size}x{config.board_size}_0.pkl"
+        if os.path.exists(alt_train_path):
+            print(f"[INFO] Using alternative naming: '0' instead of 'end'")
+            train_path = alt_train_path
+            test_path = f"{config.data_dir}/test_gtm_{config.board_size}x{config.board_size}_0.pkl"
+
     if not os.path.exists(train_path):
         print(f"\nERROR: Training dataset not found at {train_path}")
+        if stage_name == "end":
+            print(f"Also tried: {config.data_dir}/train_gtm_{config.board_size}x{config.board_size}_0.pkl")
         print("Please run 1b_build_gtm_datasets.py first!")
         return None
 

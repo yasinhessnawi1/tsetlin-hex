@@ -1,25 +1,25 @@
 @echo off
-REM Train Weighted GTM for class imbalance handling
+REM Train TM Composite Model
+
 echo ============================================================
-echo WEIGHTED GTM TRAINING (CLASS BALANCING)
+echo TM COMPOSITE TRAINING
 echo ============================================================
 echo.
-echo This trains a GTM with automatic class balancing to reduce
-echo the accuracy gap between Player 0 and Player 1 predictions.
+echo This script trains a TM Composite (ensemble) model for
+echo Hex winner prediction.
 echo.
-echo Your baseline results (5x5, 200 epochs):
-echo   Player 0: 83.46%% accuracy
-echo   Player 1: 62.06%% accuracy
-echo   Gap: 21.40%%
+echo Default configuration:
+echo   - Board: 5x5
+echo   - Stage: 0 (end game)
+echo   - Type: depth (depth-diverse composite)
+echo   - Clauses per specialist: 200
+echo   - Epochs: 200
+echo   - T: 10000
+echo   - s: 10.0
+echo   - Depth: 3
 echo.
-echo Expected improvement with class balancing:
-echo   Player 0: ~75-80%% (slightly lower)
-echo   Player 1: ~70-75%% (MUCH better!)
-echo   Gap: ~5-10%% (much smaller)
-echo.
-echo Board: 5x5
-echo Epochs: 200
-echo Estimated time: ~45 minutes
+echo You can customize by editing this script or running directly:
+echo   python scripts/4_train_composite.py --help
 echo.
 pause
 
@@ -34,10 +34,12 @@ set CUDA_VISIBLE_DEVICES=0
 echo [INFO] CUDA environment configured
 echo.
 
-python scripts\train_weighted_gtm.py
+REM Run training
+python scripts/4_train_composite.py --board-size 5 --stage all --composite-type mixed --clauses-per-specialist 200 --epochs 200 --T 10000
 
 echo.
 echo ============================================================
-echo TRAINING COMPLETE
+echo TRAINING COMPLETE!
 echo ============================================================
+echo.
 pause
