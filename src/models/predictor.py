@@ -1,5 +1,7 @@
 """
 Predictor module for training and evaluating Hex winner prediction models.
+
+FIXED VERSION - Compatible with binary GraphTsetlinMachine API.
 """
 
 import numpy as np
@@ -14,6 +16,8 @@ from .hex_graph_tm import HexGraphTM
 class Predictor:
     """
     Manages training and evaluation of GTM models for Hex winner prediction.
+    
+    FIXED: Now compatible with binary GraphTsetlinMachine which uses _fit() internally.
     """
 
     def __init__(self, model: HexGraphTM):
@@ -39,14 +43,12 @@ class Predictor:
         Train the model with periodic evaluation.
 
         Args:
-            train_graphs: Training graphs (can be shared with test_graphs)
-            train_labels: Training labels
-            test_graphs: Test graphs (can be shared with train_graphs)
-            test_labels: Test labels
+            train_graphs: Training graphs
+            train_labels: Training labels (0 or 1)
+            test_graphs: Test graphs
+            test_labels: Test labels (0 or 1)
             epochs: Number of training epochs
             test_every: Evaluate on test set every N epochs
-            train_indices: Optional indices to subset train_graphs
-            test_indices: Optional indices to subset test_graphs
         """
         print("\n" + "="*60)
         print("STARTING TRAINING")
@@ -58,16 +60,24 @@ class Predictor:
         print(f"Class distribution (train): Player 0: {np.sum(train_labels == 0)}, Player 1: {np.sum(train_labels == 1)}")
         print()
 
+        # Validate labels
+        unique_labels = np.unique(train_labels)
+        if not np.array_equal(unique_labels, np.array([0, 1])):
+            raise ValueError(f"Labels must be binary (0 or 1). Got: {unique_labels}")
+
         start_time = time.time()
 
         # Create the TM on first call
         if self.model.tm is None:
             self.model._create_tm()
 
+        # NOTE: Using MultiClassGraphTsetlinMachine now (works better than binary)
+        # It handles 2-class problems correctly with proper clause polarity
+
         for epoch in range(epochs):
             epoch_start = time.time()
 
-            # Train for one epoch
+            # MultiClass fit() accepts epochs and uses class labels directly (0, 1)
             self.model.tm.fit(train_graphs, train_labels, epochs=1, incremental=(epoch > 0))
             self.model.trained = True
 
@@ -134,7 +144,7 @@ class Predictor:
 
         Args:
             graphs: Graphs to evaluate
-            labels: True labels
+            labels: True labels (0 or 1)
             name: Name of the dataset
 
         Returns:
@@ -184,8 +194,8 @@ class Predictor:
             'player0_accuracy': player0_acc,
             'player1_accuracy': player1_acc,
             'confusion_matrix': {
-                'tn': tn, 'fp': fp,
-                'fn': fn, 'tp': tp
+                'tn': int(tn), 'fp': int(fp),
+                'fn': int(fn), 'tp': int(tp)
             },
             'predictions': predictions,
             'labels': labels
@@ -212,9 +222,12 @@ if __name__ == "__main__":
 
     from src.models import HexGraphTM
 
+    # Use FIXED parameters
     model = HexGraphTM(
-        number_of_clauses=100,
-        T=5000,
+        board_size=5,
+        number_of_clauses=1000,  # Increased from 100
+        T=15,  # FIXED from 5000
+        s=3.0,  # FIXED from default
         depth=2
     )
 

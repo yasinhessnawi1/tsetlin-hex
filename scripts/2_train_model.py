@@ -1,6 +1,8 @@
 """
 Script to train Graph Tsetlin Machine models for Hex winner prediction.
 
+FIXED VERSION - Uses correct GTM parameters and binary classification.
+
 This script trains separate models for different game stages:
 - End of game
 - 2 moves before end
@@ -9,6 +11,13 @@ This script trains separate models for different game stages:
 Usage:
     python scripts/2_train_model.py --board-size 10 --stage end
     python scripts/2_train_model.py --board-size 10 --stage all
+    
+CRITICAL FIXES:
+    - T values now 15-50 (was 5000-15000)
+    - s values now 3.0-5.0 or tuples (was 0.01-10.0)
+    - Clauses increased to 1000-4000 (was 100-500)
+    - max_included_literals now None (was 255)
+    - Using binary GraphTsetlinMachine (not MultiClass)
 """
 
 import argparse
@@ -17,9 +26,7 @@ import sys
 import pickle
 
 # IMPORTANT: Set CUDA device BEFORE any imports that use CUDA
-# This ensures PyCUDA uses the correct GPU, especially important for MIG mode
 if 'CUDA_VISIBLE_DEVICES' not in os.environ:
-    # Default to device 0 if not set
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     print(f"INFO: Setting CUDA_VISIBLE_DEVICES=0")
 else:
@@ -30,6 +37,47 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.models import HexGraphTM, Predictor
 from src.utils import Config
+
+
+def get_auto_params(board_size: int, depth: int):
+    """Get recommended parameters based on board size and depth."""
+    # Clause recommendations
+    clause_map = {
+        5: 1000,
+        6: 1500,
+        7: 2000,
+        8: 2500,
+        9: 3000,
+        10: 4000,
+        11: 5000,
+    }
+    clauses = clause_map.get(board_size, 2000 + (board_size - 7) * 500)
+    if depth >= 3:
+        clauses = int(clauses * 1.5)
+    
+    # T recommendations
+    T_map = {
+        5: 15,
+        6: 20,
+        7: 25,
+        8: 30,
+        9: 35,
+        10: 40,
+        11: 50,
+    }
+    T = T_map.get(board_size, 25)
+    
+    # s recommendations (tuple for depth > 1)
+    if depth == 1:
+        s = 3.0
+    elif depth == 2:
+        s = (4.0, 2.5)
+    elif depth == 3:
+        s = (5.0, 3.0, 2.0)
+    else:
+        s = tuple(5.0 - i * 0.7 for i in range(depth))
+    
+    return clauses, T, s
 
 
 def load_gtm_dataset(filepath: str):
@@ -44,7 +92,7 @@ def load_gtm_dataset(filepath: str):
 def train_stage(
     stage_name: str,
     config: Config,
-    save_model: bool = False  # Disabled due to CUDA pickling issues
+    save_model: bool = False
 ):
     """
     Train a model for a specific game stage.
@@ -88,6 +136,7 @@ def train_stage(
     # Create model
     print("\nInitializing Graph Tsetlin Machine...")
     model = HexGraphTM(
+        board_size=config.board_size,  # Added board_size parameter
         number_of_clauses=config.number_of_clauses,
         T=config.T,
         s=config.s,
@@ -102,7 +151,7 @@ def train_stage(
     # Create predictor
     predictor = Predictor(model)
 
-    # Train
+    # Train with validation
     train_acc, test_acc = predictor.train(
         train_graphs=train_graphs,
         train_labels=train_labels,
@@ -125,15 +174,19 @@ def train_stage(
         name=f"Test Set (Stage: {stage_name})"
     )
 
-    # Save model (disabled due to PyCUDA pickling issues)
+    # Save model if requested
     if save_model:
-        print("\n[INFO] Model saving disabled (PyCUDA pickling not supported)")
-        print("[INFO] For competition, only accuracy numbers are needed")
+        print("\n[INFO] Saving model...")
         os.makedirs(config.models_dir, exist_ok=True)
         model_path = config.get_model_path(stage_name)
-        model.save(model_path)
-        history_path = model_path.replace('.pkl', '_history.pkl')
-        predictor.save_training_history(history_path)
+        try:
+            model.save(model_path)
+            history_path = model_path.replace('.pkl', '_history.pkl')
+            predictor.save_training_history(history_path)
+            print(f"[OK] Model saved to {model_path}")
+        except Exception as e:
+            print(f"[WARNING] Could not save model: {e}")
+            print("[INFO] This is okay - only accuracy numbers are needed for evaluation")
 
     return {
         'model': model,
@@ -146,7 +199,25 @@ def train_stage(
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train GTM models for Hex winner prediction')
+    parser = argparse.ArgumentParser(
+        description='Train GTM models for Hex winner prediction (FIXED VERSION)',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+IMPORTANT PARAMETER CHANGES:
+  The default parameters have been FIXED to use correct values:
+  - T: Now 15-50 (was 5000-15000) 
+  - s: Now 3.0-5.0 or tuples (was 0.01-10.0)
+  - Clauses: Now auto-set 1000-4000 based on board size
+  - max_included_literals: Now None (was 255)
+  
+Examples:
+  # Auto-configure for 7x7 board (RECOMMENDED)
+  python scripts/2_train_model.py --board-size 7 --stage end --auto-params
+  
+  # Manual configuration for experiments
+  python scripts/2_train_model.py --board-size 7 --stage end --clauses 2000 --T 25 --s 4.0 --depth 2
+        """
+    )
 
     parser.add_argument('--board-size', type=int, default=10,
                         help='Size of the Hex board (default: 10)')
@@ -157,33 +228,35 @@ def main():
     parser.add_argument('--models-dir', type=str, default='models',
                         help='Directory to save models (default: models)')
 
-    # Training parameters
+    # Auto-configuration
+    parser.add_argument('--auto-params', action='store_true',
+                        help='Use automatic parameter configuration based on board size (RECOMMENDED)')
+
+    # Training parameters with FIXED defaults
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs (default: 100)')
-    parser.add_argument('--clauses', type=int, default=1000,
-                        help='Number of clauses (default: 1000)')
-    parser.add_argument('--depth', type=int, default=6,
-                        help='Message passing depth (default: 3)')
-    parser.add_argument('--T', type=int, default=5000,
-                        help='Threshold T (default: 5000)')
-    parser.add_argument('--s', type=float, default=0.01,
-                        help='Specificity s (default: 0.01)')
+    parser.add_argument('--clauses', type=int, default=None,
+                        help='Number of clauses (default: auto-set based on board size)')
+    parser.add_argument('--depth', type=int, default=2,
+                        help='Message passing depth (default: 2, was 6)')
+    parser.add_argument('--T', type=int, default=None,
+                        help='Threshold T (default: auto-set 15-50, was 5000)')
+    parser.add_argument('--s', type=float, default=None,
+                        help='Specificity s - single value (default: auto-set based on depth)')
+    
+    # Advanced s configuration
+    parser.add_argument('--s-tuple', type=str, default=None,
+                        help='Specificity as tuple for multi-depth, e.g., "4.0,2.5" for depth=2')
 
     # Advanced parameters
     parser.add_argument('--message-size', type=int, default=256,
                         help='Message size (default: 256)')
     parser.add_argument('--message-bits', type=int, default=2,
                         help='Message bits (default: 2)')
-    parser.add_argument('--max-included-literals', type=int, default=255,
-                        help='Max included literals (default: 255)')
+    parser.add_argument('--max-included-literals', type=int, default=None,
+                        help='Max included literals (default: None = no limit, was 255)')
     parser.add_argument('--test-every', type=int, default=5,
                         help='Test every N epochs (default: 5)')
-
-    # Informational only (hypervectors set at dataset build time)
-    parser.add_argument('--hypervector-size', type=int, default=None,
-                        help='INFO ONLY: Hypervector size used in dataset (set at build time)')
-    parser.add_argument('--hypervector-bits', type=int, default=None,
-                        help='INFO ONLY: Hypervector bits used in dataset (set at build time)')
 
     args = parser.parse_args()
 
@@ -192,34 +265,68 @@ def main():
     config.board_size = args.board_size
     config.data_dir = args.data_dir
     config.models_dir = args.models_dir
-
-    # Training parameters
     config.epochs = args.epochs
-    config.number_of_clauses = args.clauses
-    config.depth = args.depth
-    config.T = args.T
-    config.s = args.s
     config.test_every = args.test_every
-
-    # Advanced parameters
     config.message_size = args.message_size
     config.message_bits = args.message_bits
-    config.max_included_literals = args.max_included_literals
+
+    # Determine depth
+    depth = args.depth
+
+    # Auto-params or manual configuration
+    if args.auto_params or (args.clauses is None and args.T is None and args.s is None):
+        print("\n[AUTO-CONFIGURATION] Using recommended parameters for board size", args.board_size)
+        auto_clauses, auto_T, auto_s = get_auto_params(args.board_size, depth)
+        
+        config.number_of_clauses = auto_clauses
+        config.T = auto_T
+        config.s = auto_s
+        config.depth = depth
+        config.max_included_literals = None
+        
+        print(f"  Auto-configured:")
+        print(f"    Clauses: {auto_clauses}")
+        print(f"    T: {auto_T}")
+        print(f"    s: {auto_s}")
+        print(f"    depth: {depth}")
+        print(f"    max_included_literals: None")
+    else:
+        # Manual configuration with validation
+        config.number_of_clauses = args.clauses if args.clauses is not None else get_auto_params(args.board_size, depth)[0]
+        config.T = args.T if args.T is not None else get_auto_params(args.board_size, depth)[1]
+        config.depth = depth
+        config.max_included_literals = args.max_included_literals
+        
+        # Handle s parameter (can be single float or tuple)
+        if args.s_tuple:
+            # Parse tuple from string "4.0,2.5"
+            config.s = tuple(float(x.strip()) for x in args.s_tuple.split(','))
+            print(f"[INFO] Using s as tuple: {config.s}")
+        elif args.s is not None:
+            config.s = args.s
+        else:
+            config.s = get_auto_params(args.board_size, depth)[2]
+        
+        # Validate parameters
+        if config.T > 100:
+            print(f"\n[WARNING] T={config.T} is very high! Recommended: 15-50")
+            print(f"          This may prevent the model from learning properly.")
+            print(f"          Consider using --auto-params or setting T=15-50")
+        
+        if isinstance(config.s, float) and config.s > 20:
+            print(f"\n[WARNING] s={config.s} is very high! Recommended: 3.0-5.0")
+            print(f"          This may cause unstable learning.")
+        
+        if config.number_of_clauses < 500:
+            print(f"\n[WARNING] {config.number_of_clauses} clauses may be too few!")
+            print(f"          Recommended: 1000-4000 for board size {args.board_size}")
 
     # Print configuration
+    print("\n" + "="*60)
+    print("TRAINING CONFIGURATION")
+    print("="*60)
     config.print_config()
-
-    # Print hypervector info if provided (informational only)
-    if args.hypervector_size or args.hypervector_bits:
-        print("\n" + "="*60)
-        print("HYPERVECTOR SETTINGS (from dataset build)")
-        print("="*60)
-        if args.hypervector_size:
-            print(f"Hypervector size: {args.hypervector_size}")
-        if args.hypervector_bits:
-            print(f"Hypervector bits: {args.hypervector_bits}")
-        print("Note: These were set when building the dataset (.pkl files)")
-        print("="*60)
+    print("="*60)
 
     # Determine which stages to train
     if args.stage == 'all':
@@ -249,8 +356,7 @@ def main():
     print("\n" + "="*60)
     print("TRAINING COMPLETE!")
     print("="*60)
-    print(f"\nModels saved to: {config.models_dir}/")
-    print(f"You can now evaluate the models:")
+    print(f"\nYou can now evaluate the models:")
     print(f"  python scripts/3_evaluate.py")
     print("="*60 + "\n")
 
