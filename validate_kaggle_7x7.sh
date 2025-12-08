@@ -105,7 +105,7 @@ else
 fi
 
 # 3) Build GTM graph datasets (single full set; always rebuild to ensure full data)
-FULL_GTM="${DATA_DIR}/full_test_gtm_${BOARD_SIZE}x${BOARD_SIZE}_${GEN_STAGES}.pkl"
+FULL_GTM="${DATA_DIR}/full_train_gtm_${BOARD_SIZE}x${BOARD_SIZE}_${GEN_STAGES}.pkl"
 echo "[RUN] Building GTM datasets (single full set)..."
 python3 scripts/1b_build_gtm_datasets.py \
   --board-size "${BOARD_SIZE}" \
