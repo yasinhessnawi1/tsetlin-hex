@@ -104,17 +104,21 @@ else
     --all-to-test
 fi
 
-# 3) Build GTM graph datasets (single full set; always rebuild to ensure full data)
+# 3) Build GTM graph datasets (single full set; skip if exists)
 FULL_GTM="${DATA_DIR}/full_train_gtm_${BOARD_SIZE}x${BOARD_SIZE}_${GEN_STAGES}.pkl"
-echo "[RUN] Building GTM datasets (single full set)..."
-python3 scripts/1b_build_gtm_datasets.py \
-  --board-size "${BOARD_SIZE}" \
-  --stages "${GEN_STAGES}" \
-  --train-file "${RAW_TRAIN}" \
-  --test-file "${RAW_TEST}" \
-  --output-dir "${DATA_DIR}" \
-  --output-prefix "full_" \
-  --single-output
+if [[ -f "${FULL_GTM}" ]]; then
+  echo "[SKIP] Full GTM already exists: ${FULL_GTM}"
+else
+  echo "[RUN] Building GTM datasets (single full set)..."
+  python3 scripts/1b_build_gtm_datasets.py \
+    --board-size "${BOARD_SIZE}" \
+    --stages "${GEN_STAGES}" \
+    --train-file "${RAW_TRAIN}" \
+    --test-file "${RAW_TEST}" \
+    --output-dir "${DATA_DIR}" \
+    --output-prefix "full_" \
+    --single-output
+fi
 
 # 4) Evaluate using saved model(s)
 echo "[RUN] Evaluating..."
