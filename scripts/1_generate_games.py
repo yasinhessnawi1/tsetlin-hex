@@ -188,8 +188,8 @@ def parse_stages(stages_str):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate Hex games with multi-stage tracking')
-    parser.add_argument('--board-size', type=int, default=5, choices=[5, 7, 10, 11, 15],
-                        help='Board size (5, 7, 10, 11, or 15)')
+    parser.add_argument('--board-size', type=int, default=5,
+                        help='Board size (any positive integer; generator will be compiled if missing)')
     parser.add_argument('--num-train', type=int, default=10000,
                         help='Number of training games')
     parser.add_argument('--num-test', type=int, default=2000,
