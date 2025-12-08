@@ -44,22 +44,48 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 ensure_kaggle_cli() {
+  # Ensure ~/.local/bin is in PATH (common location for pip --user)
+  if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+  fi
+
   if command -v kaggle >/dev/null 2>&1; then
     return 0
   fi
+
   echo "[INFO] kaggle CLI not found. Attempting to install with pip --user ..."
   if command -v python3 >/dev/null 2>&1; then
     python3 -m pip install --user kaggle >/dev/null 2>&1 || true
   elif command -v python >/dev/null 2>&1; then
     python -m pip install --user kaggle >/dev/null 2>&1 || true
   fi
+
+  # Re-check after install and PATH update
   if command -v kaggle >/dev/null 2>&1; then
     return 0
   fi
+
+  # Fallback: try running via python -m kaggle if available
+  if command -v python3 >/dev/null 2>&1; then
+    if python3 -c "import kaggle" >/dev/null 2>&1; then
+      # shim to call the module when kaggle binary is missing/broken
+      kaggle() { python3 -m kaggle "$@"; }
+      export -f kaggle
+      return 0
+    fi
+  elif command -v python >/dev/null 2>&1; then
+    if python -c "import kaggle" >/dev/null 2>&1; then
+      kaggle() { python -m kaggle "$@"; }
+      export -f kaggle
+      return 0
+    fi
+  fi
+
   echo "[ERROR] kaggle CLI still not found. Please install and authenticate first:"
   echo "  pip install --user kaggle"
   echo "  mkdir -p ~/.kaggle && echo '{\"username\":\"<user>\",\"key\":\"<api-key>\"}' > ~/.kaggle/kaggle.json"
   echo "  chmod 600 ~/.kaggle/kaggle.json"
+  echo "Also ensure ~/.local/bin is in PATH (export PATH=\$HOME/.local/bin:\$PATH)."
   exit 1
 }
 
