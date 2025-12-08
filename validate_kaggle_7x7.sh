@@ -27,7 +27,8 @@ MODELS_DIR=${2:-models}
 DATA_DIR=${3:-data/kaggle_eval}
 NUM_TRAIN=${4:-10000}
 NUM_TEST=${5:-3000}
-GEN_STAGES="0"  # only end-state from Kaggle set
+# Force Kaggle to use only end-state (stage 0)
+GEN_STAGES="0"
 
 echo ""
 echo "============================================================"
@@ -113,7 +114,8 @@ else
   echo "[RUN] Building GTM datasets..."
   python3 scripts/1b_build_gtm_datasets.py \
     --board-size "${BOARD_SIZE}" \
-    --stages "${GEN_STAGES}"
+    --stages "${GEN_STAGES}" \
+    --output-dir "${DATA_DIR}"
 fi
 
 # 4) Evaluate using saved model(s)
