@@ -1,7 +1,7 @@
 """
 Predictor module for training and evaluating Hex winner prediction models.
 
-FIXED VERSION - Compatible with binary GraphTsetlinMachine API.
+Compatible with binary GraphTsetlinMachine API.
 """
 
 import numpy as np
@@ -17,7 +17,6 @@ class Predictor:
     """
     Manages training and evaluation of GTM models for Hex winner prediction.
     
-    FIXED: Now compatible with binary GraphTsetlinMachine which uses _fit() internally.
     """
 
     def __init__(self, model: HexGraphTM):
@@ -220,16 +219,3 @@ if __name__ == "__main__":
     # Test the predictor
     print("Testing Predictor module...")
 
-    from src.models import HexGraphTM
-
-    # Use FIXED parameters
-    model = HexGraphTM(
-        board_size=5,
-        number_of_clauses=1000,  # Increased from 100
-        T=15,  # FIXED from 5000
-        s=3.0,  # FIXED from default
-        depth=2
-    )
-
-    predictor = Predictor(model)
-    print("Predictor initialized successfully!")

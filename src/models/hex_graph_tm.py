@@ -2,7 +2,7 @@
 Graph Tsetlin Machine wrapper for Hex winner prediction.
 Configured for CUDA acceleration on 6GB GPU.
 
-FIXED VERSION with correct parameters for Hex binary classification.
+with correct parameters for Hex binary classification.
 """
 
 import numpy as np
@@ -46,7 +46,7 @@ class HexGraphTM:
         Args:
             board_size: Size of the Hex board (NxN)
             number_of_clauses: Number of clauses (auto-set based on board_size if None)
-            T: Threshold parameter - FIXED to reasonable values (15-50)
+            T: Threshold parameter 
             s: Specificity parameter - can be tuple for multi-depth learning
             depth: Message passing depth (1-3, recommend 2 for most cases)
             message_size: Size of messages passed between nodes
@@ -460,12 +460,12 @@ class HexGraphTM:
         print(f"Model type: Binary Classification (GraphTsetlinMachine)")
         print(f"\nHyperparameters:")
         print(f"  - Number of clauses: {self.params['number_of_clauses']}")
-        print(f"  - Threshold (T): {self.params['T']} (FIXED from 15000!)")
+        print(f"  - Threshold (T): {self.params['T']}")
         print(f"  - Specificity (s): {self.params['s']}")
         print(f"  - Message passing depth: {self.params['depth']}")
         print(f"  - Message size: {self.params['message_size']}")
         print(f"  - Message bits: {self.params['message_bits']}")
-        print(f"  - Max included literals: {self.params['max_included_literals'] or 'No limit (FIXED!)'}")
+        print(f"  - Max included literals: {self.params['max_included_literals'] or 'No limit'}")
         print(f"  - Boost TP feedback: {self.params['boost_true_positive_feedback']}")
         print(f"\nCUDA Configuration:")
         print(f"  - Grid: {self.params['grid']}")
@@ -569,7 +569,7 @@ def create_hex_gtm_large(board_size: int = 10, depth: int = 3) -> HexGraphTM:
 
 if __name__ == "__main__":
     print("\n" + "="*70)
-    print("HexGraphTM - FIXED VERSION")
+    print("HexGraphTM")
     print("="*70)
     print("\nKey Changes:")
     print("  ✓ Using GraphTsetlinMachine (binary) instead of MultiClass")

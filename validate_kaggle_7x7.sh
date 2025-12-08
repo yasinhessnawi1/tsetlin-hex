@@ -29,6 +29,9 @@ NUM_TRAIN=${4:-10000}
 NUM_TEST=${5:-3000}
 # Force Kaggle to use only end-state (stage 0)
 GEN_STAGES="0"
+# Hypervector settings (override here if needed)
+HYPERVECTOR_SIZE=${HYPERVECTOR_SIZE:-128}
+HYPERVECTOR_BITS=${HYPERVECTOR_BITS:-4}
 
 echo ""
 echo "============================================================"
@@ -117,7 +120,9 @@ else
     --test-file "${RAW_TEST}" \
     --output-dir "${DATA_DIR}" \
     --output-prefix "full_" \
-    --single-output
+  --single-output \
+  --hypervector-size "${HYPERVECTOR_SIZE}" \
+  --hypervector-bits "${HYPERVECTOR_BITS}"
 fi
 
 # 4) Evaluate using saved model(s)

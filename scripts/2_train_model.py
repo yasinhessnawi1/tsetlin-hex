@@ -117,7 +117,7 @@ def gtm_dataset_paths(board_size: int, stages: list, data_dir: Path):
     return paths
 
 
-def ensure_games_exist(board_size: int, num_train: int, num_test: int, stages_str: str, data_dir: Path):
+def ensure_games_exist(board_size: int, num_train: int, num_test: int, stages_str: str, data_dir: Path, balance: bool = True):
     """Generate raw games if npz files are missing."""
     train_npz, test_npz = game_npz_paths(board_size, data_dir)
     default_data_dir = REPO_ROOT / "data"
@@ -150,6 +150,8 @@ def ensure_games_exist(board_size: int, num_train: int, num_test: int, stages_st
         "--save-states",
         stages_str,
     ]
+    if not balance:
+        cmd.append("--no-balance")
 
     print(f"[RUN] Generating games: {' '.join(cmd)}")
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
@@ -377,11 +379,11 @@ def train_stage(
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Train GTM models for Hex winner prediction (FIXED VERSION)',
+        description='Train GTM models for Hex winner prediction',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 IMPORTANT PARAMETER CHANGES:
-  The default parameters have been FIXED to use correct values:
+  The default parameters have been to use correct values:
   - T: Now 15-50 (was 5000-15000) 
   - s: Now 3.0-5.0 or tuples (was 0.01-10.0)
   - Clauses: Now auto-set 1000-4000 based on board size
@@ -408,6 +410,8 @@ Examples:
                         help='Number of training games to generate if missing (default: 100000)')
     parser.add_argument('--num-test', type=int, default=30000,
                         help='Number of test games to generate if missing (default: 30000)')
+    parser.add_argument('--no-balance-games', action='store_true',
+                        help='Disable class balancing when generating games (use natural distribution)')
     parser.add_argument('--gen-stages', type=str, default='all',
                         help='Stages to generate/build datasets for (default: all -> 0,-2,-5)')
 
@@ -415,7 +419,7 @@ Examples:
     parser.add_argument('--auto-params', action='store_true',
                         help='Use automatic parameter configuration based on board size (RECOMMENDED)')
 
-    # Training parameters with FIXED defaults
+    # Training parameters with defaults
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs (default: 100)')
     parser.add_argument('--clauses', type=int, default=None,
@@ -525,6 +529,7 @@ Examples:
         num_test=args.num_test,
         stages_str=generation_stage_arg if generation_stage_arg.lower() != "all" else ",".join(generation_stages),
         data_dir=data_dir,
+        balance=not args.no_balance_games,
     )
 
     ensure_gtm_datasets_exist(

@@ -9,7 +9,7 @@ import numpy as np
 import os
 from pathlib import Path
 
-def generate_games_with_stages(board_size: int, num_games: int, output_file: str, stages: list):
+def generate_games_with_stages(board_size: int, num_games: int, output_file: str, stages: list, balance: bool = False):
     """Generate games using C executable with stage tracking and save to npz format."""
 
     print(f"\n{'='*70}")
@@ -128,26 +128,32 @@ def generate_games_with_stages(board_size: int, num_games: int, output_file: str
         print(f"  Player 0 wins: {np.sum(winners == 0)} ({100*np.sum(winners == 0)/len(winners):.1f}%)")
         print(f"  Player 1 wins: {np.sum(winners == 1)} ({100*np.sum(winners == 1)/len(winners):.1f}%)")
 
-        # BALANCE DATA: Undersample to equal class distribution
-        p0_indices = np.where(winners == 0)[0]
-        p1_indices = np.where(winners == 1)[0]
+        if balance:
+            # BALANCE DATA: Undersample to equal class distribution
+            p0_indices = np.where(winners == 0)[0]
+            p1_indices = np.where(winners == 1)[0]
 
-        # Take equal numbers from each class
-        min_count = min(len(p0_indices), len(p1_indices))
-        balanced_indices = np.concatenate([p0_indices[:min_count], p1_indices[:min_count]])
-        np.random.shuffle(balanced_indices)
+            # Take equal numbers from each class
+            min_count = min(len(p0_indices), len(p1_indices))
+            balanced_indices = np.concatenate([p0_indices[:min_count], p1_indices[:min_count]])
+            np.random.shuffle(balanced_indices)
 
-        # Apply balancing
-        winners = winners[balanced_indices]
-        boards_arrays = [boards[balanced_indices] for boards in boards_arrays]
+            # Apply balancing
+            winners = winners[balanced_indices]
+            boards_arrays = [boards[balanced_indices] for boards in boards_arrays]
 
-        print(f"\nData summary (after balancing):")
-        print(f"  Total games: {len(winners)}")
-        print(f"  Player 0 wins: {np.sum(winners == 0)} ({100*np.sum(winners == 0)/len(winners):.1f}%)")
-        print(f"  Player 1 wins: {np.sum(winners == 1)} ({100*np.sum(winners == 1)/len(winners):.1f}%)")
-        print(f"  Stages tracked: {len(stages)}")
-        for stage_idx, stage in enumerate(stages):
-            print(f"    Stage {stage}: {boards_arrays[stage_idx].shape}")
+            print(f"\nData summary (after balancing):")
+            print(f"  Total games: {len(winners)}")
+            print(f"  Player 0 wins: {np.sum(winners == 0)} ({100*np.sum(winners == 0)/len(winners):.1f}%)")
+            print(f"  Player 1 wins: {np.sum(winners == 1)} ({100*np.sum(winners == 1)/len(winners):.1f}%)")
+            print(f"  Stages tracked: {len(stages)}")
+            for stage_idx, stage in enumerate(stages):
+                print(f"    Stage {stage}: {boards_arrays[stage_idx].shape}")
+        else:
+            print(f"\nData summary (no balancing):")
+            print(f"  Total games: {len(winners)}")
+            print(f"  Player 0 wins: {np.sum(winners == 0)} ({100*np.sum(winners == 0)/len(winners):.1f}%)")
+            print(f"  Player 1 wins: {np.sum(winners == 1)} ({100*np.sum(winners == 1)/len(winners):.1f}%)")
 
         # Save to npz format with stage labels
         print(f"\nSaving to {output_file}...")
@@ -196,6 +202,8 @@ def main():
                         help='Number of test games')
     parser.add_argument('--save-states', type=str, default='0,-2,-5',
                         help='Stages to save (comma-separated). 0=end, -2=2 before end, etc. Default: "0,-2,-5"')
+    parser.add_argument('--no-balance', action='store_true',
+                        help='Disable class balancing (use natural distribution)')
 
     args = parser.parse_args()
 
@@ -216,7 +224,7 @@ def main():
 
     # Generate training data
     train_file = f'data/train_games_{args.board_size}x{args.board_size}.npz'
-    success_train = generate_games_with_stages(args.board_size, args.num_train, train_file, stages)
+    success_train = generate_games_with_stages(args.board_size, args.num_train, train_file, stages, balance=not args.no_balance)
 
     if not success_train:
         print("\nFailed to generate training data!")
@@ -224,7 +232,7 @@ def main():
 
     # Generate test data
     test_file = f'data/test_games_{args.board_size}x{args.board_size}.npz'
-    success_test = generate_games_with_stages(args.board_size, args.num_test, test_file, stages)
+    success_test = generate_games_with_stages(args.board_size, args.num_test, test_file, stages, balance=not args.no_balance)
 
     if not success_test:
         print("\nFailed to generate test data!")
