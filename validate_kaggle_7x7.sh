@@ -63,20 +63,12 @@ ensure_kaggle_cli() {
   exit 1
 }
 
-# If raw npz already exists, skip download/convert
-RAW_TRAIN="${DATA_DIR}/train_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
-RAW_TEST="${DATA_DIR}/test_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
-
 # 1) Download Kaggle dataset
 KAGGLE_DIR="${DATA_DIR}/kaggle_game_of_hex"
 mkdir -p "${KAGGLE_DIR}"
-if [[ -f "${RAW_TRAIN}" && -f "${RAW_TEST}" ]]; then
-  echo "[SKIP] Found existing raw npz files: ${RAW_TRAIN}, ${RAW_TEST}"
-else
-  ensure_kaggle_cli
-  echo "[RUN] Downloading Kaggle dataset to ${KAGGLE_DIR} ..."
-  kaggle datasets download -d cholling/game-of-hex -p "${KAGGLE_DIR}" --unzip
-fi
+ensure_kaggle_cli
+echo "[RUN] Downloading Kaggle dataset to ${KAGGLE_DIR} ..."
+kaggle datasets download -d cholling/game-of-hex -p "${KAGGLE_DIR}" --unzip --force
 
 # 2) Convert to GTM raw npz (train/test)
 echo "[RUN] Converting Kaggle dataset to GTM raw format..."
