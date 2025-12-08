@@ -179,8 +179,8 @@ def evaluate_stage(stage_name: str, config: Config):
     model_path = config.get_model_path(stage_name)
 
     if not os.path.exists(model_path):
-        print(f"\nERROR: Model not found at {model_path}")
-        print("Please train the model first using 2_train_model.py!")
+        print(f"\n[WARN] Model not found at {model_path}. Skipping evaluation for this stage.")
+        print("       Train first (scripts/2_train_model.py) to enable evaluation.")
         return None
 
     print(f"\nLoading model from {model_path}...")

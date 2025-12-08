@@ -69,6 +69,8 @@ def main():
                         help="Output path for test npz")
     parser.add_argument("--test-split", type=float, default=0.2,
                         help="Test split fraction (default 0.2)")
+    parser.add_argument("--all-to-test", action="store_true",
+                        help="Put all samples into test set (train set gets full copy as well for compatibility)")
     args = parser.parse_args()
 
     dataset_dir = Path(args.dataset_dir)
@@ -178,9 +180,14 @@ def main():
     rng = np.random.default_rng(seed=42)
     indices = np.arange(num_samples)
     rng.shuffle(indices)
-    test_count = max(1, int(num_samples * args.test_split))
-    test_idx = indices[:test_count]
-    train_idx = indices[test_count:]
+
+    if args.all_to_test:
+        test_idx = indices
+        train_idx = indices  # duplicate full set for compatibility
+    else:
+        test_count = max(1, int(num_samples * args.test_split))
+        test_idx = indices[:test_count]
+        train_idx = indices[test_count:]
 
     train_boards = boards[train_idx]
     train_winners = winners[train_idx]

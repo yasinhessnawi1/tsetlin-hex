@@ -24,7 +24,7 @@ set -euo pipefail
 BOARD_SIZE=7
 STAGE=${1:-end}
 MODELS_DIR=${2:-models}
-DATA_DIR=${3:-data}
+DATA_DIR=${3:-data/kaggle_eval}
 NUM_TRAIN=${4:-10000}
 NUM_TEST=${5:-3000}
 GEN_STAGES="0"  # only end-state from Kaggle set
@@ -53,22 +53,9 @@ ensure_kaggle_cli() {
     return 0
   fi
 
-  echo "[INFO] kaggle CLI not found. Attempting to install with pip --user ..."
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -m pip install --user kaggle >/dev/null 2>&1 || true
-  elif command -v python >/dev/null 2>&1; then
-    python -m pip install --user kaggle >/dev/null 2>&1 || true
-  fi
-
-  # Re-check after install and PATH update
-  if command -v kaggle >/dev/null 2>&1; then
-    return 0
-  fi
-
   # Fallback: try running via python -m kaggle if available
   if command -v python3 >/dev/null 2>&1; then
     if python3 -c "import kaggle" >/dev/null 2>&1; then
-      # shim to call the module when kaggle binary is missing/broken
       kaggle() { python3 -m kaggle "$@"; }
       export -f kaggle
       return 0
@@ -81,7 +68,7 @@ ensure_kaggle_cli() {
     fi
   fi
 
-  echo "[ERROR] kaggle CLI still not found. Please install and authenticate first:"
+  echo "[ERROR] kaggle CLI not found. Please install and authenticate first:"
   echo "  pip install --user kaggle"
   echo "  mkdir -p ~/.kaggle && echo '{\"username\":\"<user>\",\"key\":\"<api-key>\"}' > ~/.kaggle/kaggle.json"
   echo "  chmod 600 ~/.kaggle/kaggle.json"
@@ -89,26 +76,45 @@ ensure_kaggle_cli() {
   exit 1
 }
 
-# 1) Download Kaggle dataset
+# 1) Download Kaggle dataset (skip if raw NPZ already exists)
 KAGGLE_DIR="${DATA_DIR}/kaggle_game_of_hex"
-mkdir -p "${KAGGLE_DIR}"
-ensure_kaggle_cli
-echo "[RUN] Downloading Kaggle dataset to ${KAGGLE_DIR} ..."
-kaggle datasets download -d cholling/game-of-hex -p "${KAGGLE_DIR}" --unzip --force
+RAW_TRAIN="${DATA_DIR}/train_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
+RAW_TEST="${DATA_DIR}/test_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
+
+if [[ -f "${RAW_TRAIN}" && -f "${RAW_TEST}" ]]; then
+  echo "[SKIP] Found raw NPZ files: ${RAW_TRAIN}, ${RAW_TEST}"
+else
+  mkdir -p "${KAGGLE_DIR}"
+  ensure_kaggle_cli
+  echo "[RUN] Downloading Kaggle dataset to ${KAGGLE_DIR} ..."
+  kaggle datasets download -d cholling/game-of-hex -p "${KAGGLE_DIR}" --unzip
+fi
 
 # 2) Convert to GTM raw npz (train/test)
-echo "[RUN] Converting Kaggle dataset to GTM raw format..."
-python3 scripts/convert_kaggle_game_of_hex.py \
-  --dataset-dir "${KAGGLE_DIR}" \
-  --board-size "${BOARD_SIZE}" \
-  --train-output "${DATA_DIR}/train_games_${BOARD_SIZE}x${BOARD_SIZE}.npz" \
-  --test-output "${DATA_DIR}/test_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
+if [[ -f "${RAW_TRAIN}" && -f "${RAW_TEST}" ]]; then
+  echo "[SKIP] Raw NPZ already present; skipping conversion."
+else
+  echo "[RUN] Converting Kaggle dataset to GTM raw format..."
+  python3 scripts/convert_kaggle_game_of_hex.py \
+    --dataset-dir "${KAGGLE_DIR}" \
+    --board-size "${BOARD_SIZE}" \
+    --train-output "${RAW_TRAIN}" \
+    --test-output "${RAW_TEST}" \
+    --all-to-test
+fi
 
 # 3) Build GTM graph datasets (pkl)
-echo "[RUN] Building GTM datasets..."
-python3 scripts/1b_build_gtm_datasets.py \
-  --board-size "${BOARD_SIZE}" \
-  --stages "${GEN_STAGES}"
+TRAIN_GTM="${DATA_DIR}/train_gtm_${BOARD_SIZE}x${BOARD_SIZE}_${GEN_STAGES}.pkl"
+TEST_GTM="${DATA_DIR}/test_gtm_${BOARD_SIZE}x${BOARD_SIZE}_${GEN_STAGES}.pkl"
+
+if [[ -f "${TRAIN_GTM}" && -f "${TEST_GTM}" ]]; then
+  echo "[SKIP] GTM datasets already exist: ${TRAIN_GTM}, ${TEST_GTM}"
+else
+  echo "[RUN] Building GTM datasets..."
+  python3 scripts/1b_build_gtm_datasets.py \
+    --board-size "${BOARD_SIZE}" \
+    --stages "${GEN_STAGES}"
+fi
 
 # 4) Evaluate using saved model(s)
 echo "[RUN] Evaluating..."
