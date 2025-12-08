@@ -31,6 +31,8 @@ def main():
                         help='Directory to write GTM pkl outputs (default: data)')
     parser.add_argument('--output-prefix', type=str, default='',
                         help='Prefix for output GTM filenames (default: "")')
+    parser.add_argument('--single-output', action='store_true',
+                        help='Only write a single GTM file (train) and skip test output')
     args = parser.parse_args()
 
     print("\n" + "="*60)
@@ -140,17 +142,18 @@ def main():
         output_dir.mkdir(exist_ok=True, parents=True)
         prefix = args.output_prefix
         train_output = output_dir / f'{prefix}train_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
-        test_output = output_dir / f'{prefix}test_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
 
         print(f"\nSaving training dataset to {train_output}...")
         with open(train_output, 'wb') as f:
             pickle.dump({'graphs': train_graphs, 'labels': train_labels}, f)
         print(f"  Saved! ({len(train_labels)} samples)")
 
-        print(f"\nSaving test dataset to {test_output}...")
-        with open(test_output, 'wb') as f:
-            pickle.dump({'graphs': test_graphs, 'labels': test_labels}, f)
-        print(f"  Saved! ({len(test_labels)} samples)")
+        if not args.single_output:
+            test_output = output_dir / f'{prefix}test_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
+            print(f"\nSaving test dataset to {test_output}...")
+            with open(test_output, 'wb') as f:
+                pickle.dump({'graphs': test_graphs, 'labels': test_labels}, f)
+            print(f"  Saved! ({len(test_labels)} samples)")
 
     print("\n" + "="*60)
     print("SUCCESS! GTM datasets built and saved for all stages.")

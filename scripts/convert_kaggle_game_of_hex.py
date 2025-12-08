@@ -168,9 +168,11 @@ def main():
     uniq_board_vals = np.unique(boards)
     if np.any(uniq_board_vals < 0):
         print(f"[INFO] Normalizing board values from {uniq_board_vals} to non-negative (mapping -1->0, 0->1, 1->2)")
-        boards = np.where(boards == -1, 0, boards)
-        boards = np.where(boards == 0, 1, boards)
-        boards = np.where(boards == 1, 2, boards)
+        mapped = boards.copy()
+        mapped[boards == -1] = 0
+        mapped[boards == 0] = 1
+        mapped[boards == 1] = 2
+        boards = mapped
         uniq_board_vals = np.unique(boards)
         print(f"[INFO] Board values after normalization: {uniq_board_vals}")
 
