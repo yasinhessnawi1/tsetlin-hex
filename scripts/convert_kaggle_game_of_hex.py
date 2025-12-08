@@ -122,18 +122,41 @@ def main():
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        expected_cols = 1 + args.board_size * args.board_size
+        expected_cols = args.board_size * args.board_size + 1
         if data.shape[1] < expected_cols:
             print(f"ERROR: CSV has {data.shape[1]} columns; expected at least {expected_cols}.")
             sys.exit(1)
 
-        # Assume winner first, remainder board; fallback to winner last
-        winners = data[:, 0].astype(np.int8)
-        boards_flat = data[:, 1:1 + args.board_size * args.board_size]
-        if boards_flat.shape[1] != args.board_size * args.board_size:
-            # try winner last
+        # Parse according to header if present
+        if header:
+            header_cols = [h.strip() for h in parts]
+            lower_cols = [h.lower() for h in header_cols]
+
+            # Winner column: prefer explicit name, otherwise assume last
+            winner_idx = None
+            if "winner" in lower_cols:
+                winner_idx = lower_cols.index("winner")
+            else:
+                winner_idx = len(header_cols) - 1
+
+            # Board columns: names starting with "cell"
+            board_indices = [i for i, name in enumerate(lower_cols) if name.startswith("cell")]
+            board_indices.sort()
+
+            if len(board_indices) != args.board_size * args.board_size:
+                # fallback: assume all except winner
+                board_indices = [i for i in range(data.shape[1]) if i != winner_idx]
+
+            if len(board_indices) != args.board_size * args.board_size:
+                print(f"ERROR: Could not map board cells from header; found {len(board_indices)} vs expected {args.board_size * args.board_size}")
+                sys.exit(1)
+
+            winners = data[:, winner_idx].astype(np.int8)
+            boards_flat = data[:, board_indices]
+        else:
+            # No header: assume winner is last column, cells are first N
             winners = data[:, -1].astype(np.int8)
-            boards_flat = data[:, :args.board_size * args.board_size]
+            boards_flat = data[:, : args.board_size * args.board_size]
 
         boards = boards_flat.reshape(-1, args.board_size, args.board_size).astype(np.int8)
 
