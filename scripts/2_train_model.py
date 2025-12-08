@@ -48,8 +48,38 @@ def parse_stages_arg(stages_str: str):
 def hex_datagen_exe(board_size: int):
     """Return expected hex_datagen executable path for board size."""
     suffix = ".exe" if os.name == "nt" else ""
-    exe = HEX_BIN_DIR / f"hex_datagen_{board_size}x{board_size}{suffix}"
-    return exe
+    return HEX_BIN_DIR / f"hex_datagen_{board_size}x{board_size}{suffix}"
+
+
+def compile_hex_datagen(board_size: int):
+    """Compile hex_datagen_stages for an arbitrary board size."""
+    if os.name == "nt":
+        # Windows: use cl (requires Developer Command Prompt / Build Tools)
+        cl = shutil.which("cl")
+        if not cl:
+            raise EnvironmentError("cl compiler not found. Please run from VS Developer Prompt.")
+        cmd = [
+            "cl",
+            "/O2",
+            f"/DBOARD_DIM={board_size}",
+            "hex_datagen_stages.c",
+            f"/Fe:hex_datagen_{board_size}x{board_size}.exe",
+        ]
+        subprocess.run(cmd, check=True, cwd=HEX_BIN_DIR)
+    else:
+        gcc = shutil.which("gcc")
+        if not gcc:
+            raise EnvironmentError("gcc not found. Install build-essential.")
+        cmd = [
+            "gcc",
+            "-O3",
+            f"-DBOARD_DIM={board_size}",
+            "-o",
+            f"hex_datagen_{board_size}x{board_size}",
+            "hex_datagen_stages.c",
+            "-lm",
+        ]
+        subprocess.run(cmd, check=True, cwd=HEX_BIN_DIR)
 
 
 def ensure_hex_datagen_compiled(board_size: int):
@@ -59,20 +89,8 @@ def ensure_hex_datagen_compiled(board_size: int):
         print(f"[OK] Found data generator: {exe}")
         return exe
 
-    print(f"[INFO] Missing data generator {exe}. Attempting to compile...")
-    if os.name == "nt":
-        compile_script = HEX_BIN_DIR / "compile_datagen.bat"
-        cmd = ["cmd", "/c", str(compile_script)]
-    else:
-        compile_script = HEX_BIN_DIR / "compile_linux.sh"
-        cmd = ["/bin/bash", str(compile_script)]
-
-    try:
-        subprocess.run(cmd, check=True, cwd=HEX_BIN_DIR)
-    except subprocess.CalledProcessError as exc:
-        print(f"[ERROR] Failed to compile hex data generators using {compile_script}")
-        print(exc)
-        raise
+    print(f"[INFO] Missing data generator {exe}. Compiling on-the-fly for board {board_size}...")
+    compile_hex_datagen(board_size)
 
     if not exe.exists():
         raise FileNotFoundError(f"Expected generator not created: {exe}")
@@ -383,10 +401,10 @@ Examples:
                         help='Directory containing GTM datasets (default: data)')
     parser.add_argument('--models-dir', type=str, default='models',
                         help='Directory to save models (default: models)')
-    parser.add_argument('--num-train', type=int, default=10000,
-                        help='Number of training games to generate if missing (default: 10000)')
-    parser.add_argument('--num-test', type=int, default=3000,
-                        help='Number of test games to generate if missing (default: 3000)')
+    parser.add_argument('--num-train', type=int, default=100000,
+                        help='Number of training games to generate if missing (default: 100000)')
+    parser.add_argument('--num-test', type=int, default=30000,
+                        help='Number of test games to generate if missing (default: 30000)')
     parser.add_argument('--gen-stages', type=str, default='all',
                         help='Stages to generate/build datasets for (default: all -> 0,-2,-5)')
 

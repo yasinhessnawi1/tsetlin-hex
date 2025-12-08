@@ -139,6 +139,24 @@ def main():
         print(f"ERROR: Unsupported source file type: {source_path}")
         sys.exit(1)
 
+    # Normalize board values if negatives exist (common: -1/0/1 => map to 0/1/2)
+    uniq_board_vals = np.unique(boards)
+    if np.any(uniq_board_vals < 0):
+        print(f"[INFO] Normalizing board values from {uniq_board_vals} to non-negative (mapping -1->0, 0->1, 1->2)")
+        boards = np.where(boards == -1, 0, boards)
+        boards = np.where(boards == 0, 1, boards)
+        boards = np.where(boards == 1, 2, boards)
+        uniq_board_vals = np.unique(boards)
+        print(f"[INFO] Board values after normalization: {uniq_board_vals}")
+
+    # Normalize winners to 0/1 (treat <=0 as 0, >0 as 1)
+    uniq_winners = np.unique(winners)
+    if not set(uniq_winners.tolist()).issubset({0, 1}):
+        print(f"[INFO] Normalizing winners from {uniq_winners} to {0,1} (<=0 -> 0, >0 -> 1)")
+        winners = (winners > 0).astype(np.int8)
+        uniq_winners = np.unique(winners)
+        print(f"[INFO] Winners after normalization: {uniq_winners}")
+
     if boards.shape[1] != args.board_size or boards.shape[2] != args.board_size:
         print(f"ERROR: Board size mismatch: {boards.shape[1:]} vs expected {args.board_size}x{args.board_size}")
         sys.exit(1)

@@ -22,25 +22,51 @@ def generate_games_with_stages(board_size: int, num_games: int, output_file: str
     import platform
     is_windows = platform.system() == 'Windows'
 
-    if board_size == 5:
-        exe_name = os.path.join("hex_binaries", "hex_datagen_5x5.exe" if is_windows else "hex_datagen_5x5")
-    elif board_size == 7:
-        exe_name = os.path.join("hex_binaries", "hex_datagen_7x7.exe" if is_windows else "hex_datagen_7x7")
-    elif board_size == 10:
-        exe_name = os.path.join("hex_binaries", "hex_datagen_10x10.exe" if is_windows else "hex_datagen_10x10")
-    elif board_size == 11:
-        exe_name = os.path.join("hex_binaries", "hex_datagen_11x11.exe" if is_windows else "hex_datagen_11x11")
-    else:
-        print(f"ERROR: Unsupported board size {board_size}")
-        return False
+    exe_name = os.path.join("hex_binaries", f"hex_datagen_{board_size}x{board_size}" + (".exe" if is_windows else ""))
 
     if not os.path.exists(exe_name):
-        print(f"ERROR: {exe_name} not found!")
+        print(f"[INFO] {exe_name} not found. Attempting to compile on-the-fly...")
+        import shutil
         if is_windows:
-            print("Please compile with: hex_binaries\\compile_datagen.bat")
+            cl = shutil.which("cl")
+            if not cl:
+                print("ERROR: cl compiler not found. Run from VS Developer Prompt.")
+                return False
+            cmd = [
+                "cl",
+                "/O2",
+                f"/DBOARD_DIM={board_size}",
+                "hex_datagen_stages.c",
+                f"/Fe:hex_datagen_{board_size}x{board_size}.exe",
+            ]
+            try:
+                subprocess.run(cmd, check=True, cwd="hex_binaries")
+            except Exception as exc:
+                print(f"ERROR: Failed to compile generator: {exc}")
+                return False
         else:
-            print("Please compile with: ./hex_binaries/compile_linux.sh")
-        return False
+            gcc = shutil.which("gcc")
+            if not gcc:
+                print("ERROR: gcc not found. Install build-essential.")
+                return False
+            cmd = [
+                "gcc",
+                "-O3",
+                f"-DBOARD_DIM={board_size}",
+                "-o",
+                f"hex_datagen_{board_size}x{board_size}",
+                "hex_datagen_stages.c",
+                "-lm",
+            ]
+            try:
+                subprocess.run(cmd, check=True, cwd="hex_binaries")
+            except Exception as exc:
+                print(f"ERROR: Failed to compile generator: {exc}")
+                return False
+
+        if not os.path.exists(exe_name):
+            print(f"ERROR: {exe_name} still missing after compile.")
+            return False
 
     print(f"\nRunning {exe_name}...")
     print(f"This will generate {num_games} games with {len(stages)} stages each...")
@@ -162,8 +188,8 @@ def parse_stages(stages_str):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate Hex games with multi-stage tracking')
-    parser.add_argument('--board-size', type=int, default=5, choices=[5, 7, 10, 11],
-                        help='Board size (5, 7, 10, or 11)')
+    parser.add_argument('--board-size', type=int, default=5, choices=[5, 7, 10, 11, 15],
+                        help='Board size (5, 7, 10, 11, or 15)')
     parser.add_argument('--num-train', type=int, default=10000,
                         help='Number of training games')
     parser.add_argument('--num-test', type=int, default=2000,

@@ -18,7 +18,7 @@ from src.utils import Config
 def main():
     parser = argparse.ArgumentParser(description='Build GTM-compatible datasets from C-generated games')
     parser.add_argument('--board-size', type=int, default=5, help='Board size')
-    parser.add_argument('--hypervector-size', type=int, default=128, help='Hypervector size')
+    parser.add_argument('--hypervector-size', type=int, default=64, help='Hypervector size')
     parser.add_argument('--hypervector-bits', type=int, default=4, help='Hypervector bits')
     parser.add_argument('--stages', type=str, default='all',
                         help='Which stages to process: "all" or comma-separated like "0,-2,-5"')

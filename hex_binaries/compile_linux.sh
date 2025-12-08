@@ -55,6 +55,15 @@ else
     echo "  ✗ Failed to compile hex_datagen_11x11"
 fi
 
+# Compile for 15x15
+echo "Compiling for 15x15 board..."
+gcc -O3 -DBOARD_DIM=15 -o hex_datagen_15x15 hex_datagen_stages.c -lm
+if [ $? -eq 0 ]; then
+    echo "  ✓ hex_datagen_15x15 compiled successfully"
+else
+    echo "  ✗ Failed to compile hex_datagen_15x15"
+fi
+
 echo ""
 echo "============================================================"
 echo "COMPILATION COMPLETE!"

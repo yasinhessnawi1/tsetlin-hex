@@ -24,11 +24,12 @@ echo.
 echo Compiling for 11x11 board...
 cl /O2 /DBOARD_DIM=11 hex_datagen_stages.c /Fe:hex_datagen_11x11.exe
 
+echo.
+echo Compiling for 15x15 board...
+cl /O2 /DBOARD_DIM=15 hex_datagen_stages.c /Fe:hex_datagen_15x15.exe
+
 if %ERRORLEVEL% EQU 0 (
     echo Success! Created multi-stage data generation executables
-    echo.
-    echo Test with: hex_datagen_5x5.exe 10 0 -2 -5
-    echo This generates 10 games with 3 stages: end (0), -2 moves, -5 moves
 ) else (
     echo Failed to compile
 )
