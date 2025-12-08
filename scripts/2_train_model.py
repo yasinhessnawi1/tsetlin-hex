@@ -1,29 +1,24 @@
 """
 Script to train Graph Tsetlin Machine models for Hex winner prediction.
 
-FIXED VERSION - Uses correct GTM parameters and binary classification.
+End-to-end pipeline:
+    - Compile Hex C generators if needed
+    - Generate raw games (skip if data already exists)
+    - Build GTM graph datasets (skip if datasets already exist)
+    - Train stage models
 
-This script trains separate models for different game stages:
-- End of game
-- 2 moves before end
-- 5 moves before end
-
-Usage:
-    python scripts/2_train_model.py --board-size 10 --stage end
+Usage examples:
     python scripts/2_train_model.py --board-size 10 --stage all
-    
-CRITICAL FIXES:
-    - T values now 15-50 (was 5000-15000)
-    - s values now 3.0-5.0 or tuples (was 0.01-10.0)
-    - Clauses increased to 1000-4000 (was 100-500)
-    - max_included_literals now None (was 255)
-    - Using binary GraphTsetlinMachine (not MultiClass)
+    python scripts/2_train_model.py --board-size 7 --stage end --num-train 5000 --num-test 1500
 """
 
 import argparse
 import os
 import sys
 import pickle
+import shutil
+import subprocess
+from pathlib import Path
 
 # IMPORTANT: Set CUDA device BEFORE any imports that use CUDA
 if 'CUDA_VISIBLE_DEVICES' not in os.environ:
@@ -37,6 +32,167 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.models import HexGraphTM, Predictor
 from src.utils import Config
+REPO_ROOT = Path(__file__).resolve().parent.parent
+HEX_BIN_DIR = REPO_ROOT / "hex_binaries"
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+DEFAULT_STAGES = [0, -2, -5]  # "all states" set
+
+
+def parse_stages_arg(stages_str: str):
+    """Parse stages argument into a list of stage identifiers (strings)."""
+    if stages_str.lower() == "all":
+        return [str(s) for s in DEFAULT_STAGES]
+    return [s.strip() for s in stages_str.split(",") if s.strip()]
+
+
+def hex_datagen_exe(board_size: int):
+    """Return expected hex_datagen executable path for board size."""
+    suffix = ".exe" if os.name == "nt" else ""
+    exe = HEX_BIN_DIR / f"hex_datagen_{board_size}x{board_size}{suffix}"
+    return exe
+
+
+def ensure_hex_datagen_compiled(board_size: int):
+    """Ensure the hex_datagen executable for the board size exists; compile if missing."""
+    exe = hex_datagen_exe(board_size)
+    if exe.exists():
+        print(f"[OK] Found data generator: {exe}")
+        return exe
+
+    print(f"[INFO] Missing data generator {exe}. Attempting to compile...")
+    if os.name == "nt":
+        compile_script = HEX_BIN_DIR / "compile_datagen.bat"
+        cmd = ["cmd", "/c", str(compile_script)]
+    else:
+        compile_script = HEX_BIN_DIR / "compile_linux.sh"
+        cmd = ["/bin/bash", str(compile_script)]
+
+    try:
+        subprocess.run(cmd, check=True, cwd=HEX_BIN_DIR)
+    except subprocess.CalledProcessError as exc:
+        print(f"[ERROR] Failed to compile hex data generators using {compile_script}")
+        print(exc)
+        raise
+
+    if not exe.exists():
+        raise FileNotFoundError(f"Expected generator not created: {exe}")
+
+    print(f"[OK] Compiled and found generator: {exe}")
+    return exe
+
+
+def game_npz_paths(board_size: int, data_dir: Path):
+    """Return train/test npz paths for generated games."""
+    train_npz = data_dir / f"train_games_{board_size}x{board_size}.npz"
+    test_npz = data_dir / f"test_games_{board_size}x{board_size}.npz"
+    return train_npz, test_npz
+
+
+def gtm_dataset_paths(board_size: int, stages: list, data_dir: Path):
+    """Return expected train/test pkl paths for each stage."""
+    paths = []
+    for stage in stages:
+        paths.append((
+            data_dir / f"train_gtm_{board_size}x{board_size}_{stage}.pkl",
+            data_dir / f"test_gtm_{board_size}x{board_size}_{stage}.pkl",
+        ))
+    return paths
+
+
+def ensure_games_exist(board_size: int, num_train: int, num_test: int, stages_str: str, data_dir: Path):
+    """Generate raw games if npz files are missing."""
+    train_npz, test_npz = game_npz_paths(board_size, data_dir)
+    default_data_dir = REPO_ROOT / "data"
+    default_train, default_test = game_npz_paths(board_size, default_data_dir)
+
+    # Reuse default data if present
+    if not (train_npz.exists() and test_npz.exists()):
+        if data_dir != default_data_dir and default_train.exists() and default_test.exists():
+            data_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(default_train, train_npz)
+            shutil.copy2(default_test, test_npz)
+            print(f"[INFO] Copied existing raw games from {default_data_dir} to {data_dir}")
+
+    if train_npz.exists() and test_npz.exists():
+        print(f"[SKIP] Raw games already exist at {train_npz} and {test_npz}")
+        return
+
+    ensure_hex_datagen_compiled(board_size)
+
+    gen_script = SCRIPTS_DIR / "1_generate_games.py"
+    cmd = [
+        sys.executable,
+        str(gen_script),
+        "--board-size",
+        str(board_size),
+        "--num-train",
+        str(num_train),
+        "--num-test",
+        str(num_test),
+        "--save-states",
+        stages_str,
+    ]
+
+    print(f"[RUN] Generating games: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True, cwd=REPO_ROOT)
+    # The generator writes to REPO_ROOT/data; copy to custom data_dir if needed
+    if data_dir != default_data_dir:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        if default_train.exists() and default_test.exists():
+            shutil.copy2(default_train, train_npz)
+            shutil.copy2(default_test, test_npz)
+
+    if not (train_npz.exists() and test_npz.exists()):
+        raise FileNotFoundError("Game generation did not produce expected npz files.")
+    print(f"[OK] Generated raw games at {train_npz} and {test_npz}")
+
+
+def ensure_gtm_datasets_exist(board_size: int, stages: list, stages_arg: str, data_dir: Path):
+    """Build GTM datasets if any stage dataset is missing."""
+    expected = gtm_dataset_paths(board_size, stages, data_dir)
+    default_data_dir = REPO_ROOT / "data"
+    default_expected = gtm_dataset_paths(board_size, stages, default_data_dir)
+
+    # Copy from default location if needed
+    if not all(train.exists() and test.exists() for train, test in expected):
+        if data_dir != default_data_dir and all(tr.exists() and te.exists() for tr, te in default_expected):
+            data_dir.mkdir(parents=True, exist_ok=True)
+            for (src_tr, src_te), (dst_tr, dst_te) in zip(default_expected, expected):
+                shutil.copy2(src_tr, dst_tr)
+                shutil.copy2(src_te, dst_te)
+            print(f"[INFO] Copied existing GTM datasets from {default_data_dir} to {data_dir}")
+
+    if all(train.exists() and test.exists() for train, test in expected):
+        print("[SKIP] GTM datasets already exist for requested stages.")
+        return
+
+    build_script = SCRIPTS_DIR / "1b_build_gtm_datasets.py"
+    cmd = [
+        sys.executable,
+        str(build_script),
+        "--board-size",
+        str(board_size),
+        "--stages",
+        stages_arg if stages_arg.lower() != "all" else "all",
+    ]
+    print(f"[RUN] Building GTM datasets: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True, cwd=REPO_ROOT)
+
+    # Re-check existence
+    # If builder saved to default path, copy back to custom data_dir
+    if data_dir != default_data_dir:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        for (src_tr, src_te), (dst_tr, dst_te) in zip(default_expected, expected):
+            if src_tr.exists() and not dst_tr.exists():
+                shutil.copy2(src_tr, dst_tr)
+            if src_te.exists() and not dst_te.exists():
+                shutil.copy2(src_te, dst_te)
+
+    expected = gtm_dataset_paths(board_size, stages, data_dir)
+    missing = [(tr, te) for tr, te in expected if not (tr.exists() and te.exists())]
+    if missing:
+        raise FileNotFoundError(f"GTM dataset build missing files: {missing}")
+    print("[OK] GTM datasets ready.")
 
 
 def get_auto_params(board_size: int, depth: int):
@@ -227,6 +383,12 @@ Examples:
                         help='Directory containing GTM datasets (default: data)')
     parser.add_argument('--models-dir', type=str, default='models',
                         help='Directory to save models (default: models)')
+    parser.add_argument('--num-train', type=int, default=10000,
+                        help='Number of training games to generate if missing (default: 10000)')
+    parser.add_argument('--num-test', type=int, default=3000,
+                        help='Number of test games to generate if missing (default: 3000)')
+    parser.add_argument('--gen-stages', type=str, default='all',
+                        help='Stages to generate/build datasets for (default: all -> 0,-2,-5)')
 
     # Auto-configuration
     parser.add_argument('--auto-params', action='store_true',
@@ -269,6 +431,8 @@ Examples:
     config.test_every = args.test_every
     config.message_size = args.message_size
     config.message_bits = args.message_bits
+    data_dir = (REPO_ROOT / config.data_dir).resolve()
+    data_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine depth
     depth = args.depth
@@ -327,6 +491,27 @@ Examples:
     print("="*60)
     config.print_config()
     print("="*60)
+
+    # Prepare stages for data generation/building
+    generation_stages = parse_stages_arg(args.gen_stages)
+    generation_stage_arg = args.gen_stages  # original string for subprocess
+    print(f"\nRequested generation stages: {generation_stages}")
+
+    # Ensure data exists (skip if already present)
+    ensure_games_exist(
+        board_size=args.board_size,
+        num_train=args.num_train,
+        num_test=args.num_test,
+        stages_str=generation_stage_arg if generation_stage_arg.lower() != "all" else ",".join(generation_stages),
+        data_dir=data_dir,
+    )
+
+    ensure_gtm_datasets_exist(
+        board_size=args.board_size,
+        stages=generation_stages,
+        stages_arg=generation_stage_arg,
+        data_dir=data_dir,
+    )
 
     # Determine which stages to train
     if args.stage == 'all':
