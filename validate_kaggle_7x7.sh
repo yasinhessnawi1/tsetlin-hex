@@ -43,11 +43,40 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
+ensure_kaggle_cli() {
+  if command -v kaggle >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "[INFO] kaggle CLI not found. Attempting to install with pip --user ..."
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -m pip install --user kaggle >/dev/null 2>&1 || true
+  elif command -v python >/dev/null 2>&1; then
+    python -m pip install --user kaggle >/dev/null 2>&1 || true
+  fi
+  if command -v kaggle >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "[ERROR] kaggle CLI still not found. Please install and authenticate first:"
+  echo "  pip install --user kaggle"
+  echo "  mkdir -p ~/.kaggle && echo '{\"username\":\"<user>\",\"key\":\"<api-key>\"}' > ~/.kaggle/kaggle.json"
+  echo "  chmod 600 ~/.kaggle/kaggle.json"
+  exit 1
+}
+
+# If raw npz already exists, skip download/convert
+RAW_TRAIN="${DATA_DIR}/train_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
+RAW_TEST="${DATA_DIR}/test_games_${BOARD_SIZE}x${BOARD_SIZE}.npz"
+
 # 1) Download Kaggle dataset
 KAGGLE_DIR="${DATA_DIR}/kaggle_game_of_hex"
 mkdir -p "${KAGGLE_DIR}"
-echo "[RUN] Downloading Kaggle dataset to ${KAGGLE_DIR} ..."
-kaggle datasets download -d cholling/game-of-hex -p "${KAGGLE_DIR}" --unzip
+if [[ -f "${RAW_TRAIN}" && -f "${RAW_TEST}" ]]; then
+  echo "[SKIP] Found existing raw npz files: ${RAW_TRAIN}, ${RAW_TEST}"
+else
+  ensure_kaggle_cli
+  echo "[RUN] Downloading Kaggle dataset to ${KAGGLE_DIR} ..."
+  kaggle datasets download -d cholling/game-of-hex -p "${KAGGLE_DIR}" --unzip
+fi
 
 # 2) Convert to GTM raw npz (train/test)
 echo "[RUN] Converting Kaggle dataset to GTM raw format..."
