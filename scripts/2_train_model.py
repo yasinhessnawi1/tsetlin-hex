@@ -354,13 +354,16 @@ def train_stage(
         os.makedirs(config.models_dir, exist_ok=True)
         model_path = config.get_model_path(stage_name)
         try:
-            model.save(model_path)
-            history_path = model_path.replace('.pkl', '_history.pkl')
-            predictor.save_training_history(history_path)
-            print(f"[OK] Model saved to {model_path}")
+            saved = model.save(model_path)
+            if saved:
+                history_path = model_path.replace('.pkl', '_history.pkl')
+                predictor.save_training_history(history_path)
+                print(f"[OK] Model saved to {model_path}")
+            else:
+                print(f"[WARN] Model was not saved (PyCUDA state not pickleable).")
         except Exception as e:
             print(f"[WARNING] Could not save model: {e}")
-            print("[INFO] This is okay - only accuracy numbers are needed for evaluation")
+            print("[INFO] Continuing; accuracy numbers are still valid.")
 
     return {
         'model': model,

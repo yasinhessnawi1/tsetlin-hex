@@ -392,19 +392,21 @@ class HexGraphTM:
             }
         }
 
-    def save(self, filepath: str):
+    def save(self, filepath: str) -> bool:
         """
         Save the model to disk.
 
         Args:
             filepath: Path to save the model
+
+        Returns:
+            bool: True if saved, False if skipped (e.g., PyCUDA pickling issues)
         """
         if self.tm is None:
             raise ValueError("No model to save!")
 
-        # Use GTM's built-in save if available
         try:
-            state_dict = self.tm.save()  # Get state from GTM
+            state_dict = self.tm.save()  # Get state from GTM (pickle-safe)
             save_data = {
                 'params': self.params,
                 'seed': self.seed,
@@ -413,21 +415,16 @@ class HexGraphTM:
                 'training_history': self.training_history,
                 'tm_state': state_dict
             }
-        except:
-            # Fallback to pickling whole object
-            save_data = {
-                'params': self.params,
-                'seed': self.seed,
-                'trained': self.trained,
-                'board_size': self.board_size,
-                'training_history': self.training_history,
-                'tm': self.tm
-            }
+        except Exception as exc:
+            print(f"[WARN] Model save skipped: {exc}")
+            print("[INFO] PyCUDA objects cannot be pickled; continuing without saving.")
+            return False
 
         with open(filepath, 'wb') as f:
             pickle.dump(save_data, f)
 
         print(f"Model saved to {filepath}")
+        return True
 
     def load(self, filepath: str):
         """

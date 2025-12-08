@@ -179,8 +179,14 @@ def evaluate_stage(stage_name: str, config: Config, explicit_test_file: str = No
     model_path = config.get_model_path(stage_name)
 
     if not os.path.exists(model_path):
-        print(f"\n[WARN] Model not found at {model_path}. Skipping evaluation for this stage.")
-        print("       Train first (scripts/2_train_model.py) to enable evaluation.")
+        history_path = model_path.replace('.pkl', '_history.pkl')
+        if os.path.exists(history_path):
+            print(f"\n[WARN] Model not found at {model_path}, but history exists: {history_path}")
+            print("       Model was likely not saved due to PyCUDA pickling limits.")
+            print("       Skipping evaluation for this stage.")
+        else:
+            print(f"\n[WARN] Model not found at {model_path}. Skipping evaluation for this stage.")
+            print("       Train first (scripts/2_train_model.py) to enable evaluation.")
         return None
 
     print(f"\nLoading model from {model_path}...")
