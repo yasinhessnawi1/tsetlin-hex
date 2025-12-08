@@ -163,7 +163,7 @@ def ensure_gtm_datasets(board_size: int, stages: list, stages_arg: str, data_dir
     print("[OK] GTM datasets ready.")
 
 
-def evaluate_stage(stage_name: str, config: Config):
+def evaluate_stage(stage_name: str, config: Config, explicit_test_file: str = None):
     """
     Evaluate a model for a specific game stage.
 
@@ -187,18 +187,24 @@ def evaluate_stage(stage_name: str, config: Config):
     model = HexGraphTM()
     model.load(model_path)
 
-    # Load test dataset (with fallback stage label)
-    test_path = f"{config.data_dir}/test_gtm_{config.board_size}x{config.board_size}_{stage_name}.pkl"
-    if not os.path.exists(test_path):
-        alt_stage = stage_to_dataset_label(stage_name)
-        alt_test = f"{config.data_dir}/test_gtm_{config.board_size}x{config.board_size}_{alt_stage}.pkl"
-        if os.path.exists(alt_test):
-            print(f"[INFO] Using alternate stage label file: {alt_test}")
-            test_path = alt_test
-        else:
+    # Load test dataset (with optional override and fallback stage label)
+    if explicit_test_file:
+        test_path = explicit_test_file
+        if not os.path.exists(test_path):
             print(f"\nERROR: Test dataset not found at {test_path}")
-            print(f"Also tried: {alt_test}")
             return None
+    else:
+        test_path = f"{config.data_dir}/test_gtm_{config.board_size}x{config.board_size}_{stage_name}.pkl"
+        if not os.path.exists(test_path):
+            alt_stage = stage_to_dataset_label(stage_name)
+            alt_test = f"{config.data_dir}/test_gtm_{config.board_size}x{config.board_size}_{alt_stage}.pkl"
+            if os.path.exists(alt_test):
+                print(f"[INFO] Using alternate stage label file: {alt_test}")
+                test_path = alt_test
+            else:
+                print(f"\nERROR: Test dataset not found at {test_path}")
+                print(f"Also tried: {alt_test}")
+                return None
 
     test_graphs, test_labels = load_gtm_dataset(test_path)
 
@@ -226,6 +232,8 @@ def main():
                         help='Directory containing GTM datasets (default: data)')
     parser.add_argument('--models-dir', type=str, default='models',
                         help='Directory containing trained models (default: models)')
+    parser.add_argument('--test-file', type=str, default=None,
+                        help='Explicit path to test GTM pickle (overrides stage-based path)')
     parser.add_argument('--num-train', type=int, default=10000,
                         help='Number of training games to generate if missing (default: 10000)')
     parser.add_argument('--num-test', type=int, default=3000,
@@ -284,7 +292,7 @@ def main():
     # Evaluate each stage
     results = {}
     for stage in stages:
-        result = evaluate_stage(stage, config)
+        result = evaluate_stage(stage, config, explicit_test_file=args.test_file)
         if result is not None:
             results[stage] = result
 

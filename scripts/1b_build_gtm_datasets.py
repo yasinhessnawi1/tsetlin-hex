@@ -8,6 +8,7 @@ import os
 import sys
 import pickle
 import numpy as np
+from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -22,6 +23,14 @@ def main():
     parser.add_argument('--hypervector-bits', type=int, default=4, help='Hypervector bits')
     parser.add_argument('--stages', type=str, default='all',
                         help='Which stages to process: "all" or comma-separated like "0,-2,-5"')
+    parser.add_argument('--train-file', type=str, default=None,
+                        help='Optional path to train npz (default: data/train_games_<board>x<board>.npz)')
+    parser.add_argument('--test-file', type=str, default=None,
+                        help='Optional path to test npz (default: data/test_games_<board>x<board>.npz)')
+    parser.add_argument('--output-dir', type=str, default='data',
+                        help='Directory to write GTM pkl outputs (default: data)')
+    parser.add_argument('--output-prefix', type=str, default='',
+                        help='Prefix for output GTM filenames (default: "")')
     args = parser.parse_args()
 
     print("\n" + "="*60)
@@ -34,8 +43,8 @@ def main():
     print("="*60)
 
     # Load C-generated game data
-    train_file = f'data/train_games_{args.board_size}x{args.board_size}.npz'
-    test_file = f'data/test_games_{args.board_size}x{args.board_size}.npz'
+    train_file = args.train_file or f'data/train_games_{args.board_size}x{args.board_size}.npz'
+    test_file = args.test_file or f'data/test_games_{args.board_size}x{args.board_size}.npz'
 
     if not os.path.exists(train_file):
         print(f"\nERROR: Training data not found at {train_file}")
@@ -127,8 +136,11 @@ def main():
         print(f"\n[OK] Train and test graphs created with COMPATIBLE encodings!")
 
         # Save datasets for this stage
-        train_output = f'data/train_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
-        test_output = f'data/test_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(exist_ok=True, parents=True)
+        prefix = args.output_prefix
+        train_output = output_dir / f'{prefix}train_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
+        test_output = output_dir / f'{prefix}test_gtm_{args.board_size}x{args.board_size}_{stage}.pkl'
 
         print(f"\nSaving training dataset to {train_output}...")
         with open(train_output, 'wb') as f:
