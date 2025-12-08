@@ -15,20 +15,40 @@ import argparse
 import sys
 import os
 from pathlib import Path
+import zipfile
 import numpy as np
 
 
-def find_npz(dataset_dir: Path):
+def find_source_file(dataset_dir: Path):
+    """Find a source file (npz or csv). Auto-unzip zip files if present."""
+    # Try unzipping any zip files in the directory
+    zip_files = list(dataset_dir.glob("*.zip"))
+    for zf in zip_files:
+        try:
+            print(f"[INFO] Unzipping {zf} ...")
+            with zipfile.ZipFile(zf, 'r') as z:
+                z.extractall(dataset_dir)
+        except Exception as exc:
+            print(f"[WARN] Failed to unzip {zf}: {exc}")
+
     npz_files = list(dataset_dir.glob("*.npz"))
-    if not npz_files:
-        raise FileNotFoundError(f"No .npz files found in {dataset_dir}. "
-                                "Please unzip the Kaggle dataset here.")
-    # Prefer a file that looks like it has boards
-    for name_hint in ["hex", "board", "game"]:
-        for f in npz_files:
-            if name_hint in f.name.lower():
+    csv_files = list(dataset_dir.glob("*.csv"))
+
+    candidates = npz_files + csv_files
+    if not candidates:
+        raise FileNotFoundError(
+            f"No .npz or .csv files found in {dataset_dir}. "
+            "Please place or unzip the Kaggle dataset here."
+        )
+
+    # Prefer filenames with hints
+    hints = ["hex", "board", "game"]
+    for hint in hints:
+        for f in candidates:
+            if hint in f.name.lower():
                 return f
-    return npz_files[0]
+
+    return candidates[0]
 
 
 def pick_key(keys, candidates):
@@ -56,31 +76,67 @@ def main():
         print(f"ERROR: dataset directory not found: {dataset_dir}")
         sys.exit(1)
 
-    npz_path = find_npz(dataset_dir)
-    print(f"[INFO] Loading source npz: {npz_path}")
-    data = np.load(npz_path)
-    keys = set(data.keys())
-    print(f"[INFO] Keys found: {keys}")
+    source_path = find_source_file(dataset_dir)
+    print(f"[INFO] Using source: {source_path}")
 
-    board_key = pick_key(keys, ["states", "boards", "board_states", "positions"])
-    winner_key = pick_key(keys, ["winners", "winner", "result", "labels"])
+    if source_path.suffix.lower() == ".npz":
+        data = np.load(source_path)
+        keys = set(data.keys())
+        print(f"[INFO] Keys found: {keys}")
 
-    if board_key is None or winner_key is None:
-        print("ERROR: Could not find board/winner keys in the npz.")
-        print("Expected one of board keys: states, boards, board_states, positions")
-        print("Expected one of winner keys: winners, winner, result, labels")
-        sys.exit(1)
+        board_key = pick_key(keys, ["states", "boards", "board_states", "positions"])
+        winner_key = pick_key(keys, ["winners", "winner", "result", "labels"])
 
-    boards = data[board_key]
-    winners = data[winner_key]
+        if board_key is None or winner_key is None:
+            print("ERROR: Could not find board/winner keys in the npz.")
+            print("Expected one of board keys: states, boards, board_states, positions")
+            print("Expected one of winner keys: winners, winner, result, labels")
+            sys.exit(1)
 
-    if boards.ndim == 3:
-        # shape: (N, 7, 7)
-        pass
-    elif boards.ndim == 4 and boards.shape[-1] == 1:
-        boards = boards[..., 0]
+        boards = data[board_key]
+        winners = data[winner_key]
+
+        if boards.ndim == 3:
+            pass
+        elif boards.ndim == 4 and boards.shape[-1] == 1:
+            boards = boards[..., 0]
+        else:
+            print(f"ERROR: Unexpected board shape {boards.shape}. Expected (N,7,7) or (N,7,7,1).")
+            sys.exit(1)
+
+    elif source_path.suffix.lower() == ".csv":
+        print("[INFO] Detected CSV; attempting to parse (winner column + 49 cells).")
+        # Detect header
+        with open(source_path, "r", encoding="utf-8") as f:
+            first_line = f.readline().strip()
+        parts = first_line.split(",")
+        header = False
+        try:
+            [float(p) for p in parts]
+        except Exception:
+            header = True
+
+        data = np.genfromtxt(source_path, delimiter=",", skip_header=1 if header else 0)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+
+        expected_cols = 1 + args.board_size * args.board_size
+        if data.shape[1] < expected_cols:
+            print(f"ERROR: CSV has {data.shape[1]} columns; expected at least {expected_cols}.")
+            sys.exit(1)
+
+        # Assume winner first, remainder board; fallback to winner last
+        winners = data[:, 0].astype(np.int8)
+        boards_flat = data[:, 1:1 + args.board_size * args.board_size]
+        if boards_flat.shape[1] != args.board_size * args.board_size:
+            # try winner last
+            winners = data[:, -1].astype(np.int8)
+            boards_flat = data[:, :args.board_size * args.board_size]
+
+        boards = boards_flat.reshape(-1, args.board_size, args.board_size).astype(np.int8)
+
     else:
-        print(f"ERROR: Unexpected board shape {boards.shape}. Expected (N,7,7) or (N,7,7,1).")
+        print(f"ERROR: Unsupported source file type: {source_path}")
         sys.exit(1)
 
     if boards.shape[1] != args.board_size or boards.shape[2] != args.board_size:
