@@ -115,6 +115,8 @@ else
   python3 scripts/1b_build_gtm_datasets.py \
     --board-size "${BOARD_SIZE}" \
     --stages "${GEN_STAGES}" \
+    --train-file "${RAW_TRAIN}" \
+    --test-file "${RAW_TEST}" \
     --output-dir "${DATA_DIR}"
 fi
 
