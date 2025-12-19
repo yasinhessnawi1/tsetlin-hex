@@ -10,4 +10,6 @@ __pycache__/
 *.pyzw
 experiments/*
 models/*
-plan.md
+.docs/*
+*.txt
+hex_binaries/*.exe

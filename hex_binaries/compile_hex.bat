@@ -19,7 +19,7 @@ cl /LD /DBOARD_DIM=10 hex.c /Fe:hex_10x10.dll
 
 echo.
 echo Compiling for 11x11 board (standard)...
-cl /LD /DBOARD_DIM=11 hex.c /Fe:hex_11x11.dll
+cl /LD /DBOARD_DIM=20 hex.c /Fe:hex_20x20.dll
 
 if %ERRORLEVEL% EQU 0 (
     echo Success! Created hex.dll

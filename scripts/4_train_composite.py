@@ -282,23 +282,23 @@ Examples:
     # Training parameters
     parser.add_argument('--epochs', type=int, default=200,
                         help='Number of training epochs (default: 200)')
-    parser.add_argument('--T', type=int, default=10000,
-                        help='Threshold T (default: 10000)')
-    parser.add_argument('--s', type=float, default=10.0,
-                        help='Baseline specificity s (default: 10.0)')
+    parser.add_argument('--T', type=int, default=5000,
+                        help='Threshold T (default: 5000)')
+    parser.add_argument('--s', type=float, default=1.0,
+                        help='Baseline specificity s (default: 1.0)')
     parser.add_argument('--depth', type=int, default=3,
                         help='Baseline message passing depth (default: 3)')
 
     # Advanced parameters
-    parser.add_argument('--message-size', type=int, default=256,
-                        help='Message size (default: 256)')
+    parser.add_argument('--message-size', type=int, default=512,
+                        help='Message size (default: 512)')
     parser.add_argument('--message-bits', type=int, default=2,
                         help='Message bits (default: 2)')
 
     # Informational only (hypervectors set at dataset build time)
-    parser.add_argument('--hypervector-size', type=int, default=None,
+    parser.add_argument('--hypervector-size', type=int, default=512,
                         help='INFO ONLY: Hypervector size used in dataset (set at build time)')
-    parser.add_argument('--hypervector-bits', type=int, default=None,
+    parser.add_argument('--hypervector-bits', type=int, default=2,
                         help='INFO ONLY: Hypervector bits used in dataset (set at build time)')
 
     args = parser.parse_args()

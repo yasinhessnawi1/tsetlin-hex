@@ -438,7 +438,7 @@ Examples:
     # Advanced parameters
     parser.add_argument('--message-size', type=int, default=256,
                         help='Message size (default: 256)')
-    parser.add_argument('--message-bits', type=int, default=2,
+    parser.add_argument('--message-bits', type=int, default=4,
                         help='Message bits (default: 2)')
     parser.add_argument('--max-included-literals', type=int, default=None,
                         help='Max included literals (default: None = no limit, was 255)')
@@ -497,15 +497,6 @@ Examples:
             config.s = get_auto_params(args.board_size, depth)[2]
         
         # Validate parameters
-        if config.T > 100:
-            print(f"\n[WARNING] T={config.T} is very high! Recommended: 15-50")
-            print(f"          This may prevent the model from learning properly.")
-            print(f"          Consider using --auto-params or setting T=15-50")
-        
-        if isinstance(config.s, float) and config.s > 20:
-            print(f"\n[WARNING] s={config.s} is very high! Recommended: 3.0-5.0")
-            print(f"          This may cause unstable learning.")
-        
         if config.number_of_clauses < 500:
             print(f"\n[WARNING] {config.number_of_clauses} clauses may be too few!")
             print(f"          Recommended: 1000-4000 for board size {args.board_size}")

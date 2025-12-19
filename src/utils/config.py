@@ -3,7 +3,7 @@ Configuration management for the Graph Tsetlin Machine Hex project.
 """
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 
 
 @dataclass
@@ -13,7 +13,7 @@ class Config:
     # Board settings
     board_size: int = 10
 
-    # Data generation (A100 80GB optimized)
+    # Data generation (A100 32GB optimized)
     num_train_games: int = 1000000  # Massive dataset for near-perfect accuracy
     num_test_games: int = 200000
     save_states_at: List[int] = None  # Will be set to [0, -2, -5] in __post_init__
@@ -23,12 +23,12 @@ class Config:
     hypervector_size: int = 256
     hypervector_bits: int = 4
 
-    # GTM Model parameters - A100 80GB OPTIMIZED
+    # GTM Model parameters - A100 32GB OPTIMIZED
     # Key insight: 100 clauses works best, but with massive data, can go to 200
-    number_of_clauses: int = 100  # Scaled up for A100 + massive dataset
-    T: int = 5000  # Optimal for binary classification
-    s: float = 10.0  # Good balance for learning speed
-    depth: int = 6  # Deep message passing for connectivity detection
+    number_of_clauses: int = 175  # Scaled up for A100 + massive dataset
+    T: int = 175  # Optimal for binary classification
+    s_tuple: Tuple[float, ...] = (1.6, 1.2, 1.0)  # Good balance for learning speed
+    depth: int = 3  # Deep message passing for connectivity detection
     message_size: int = 1024
     message_bits: int = 4
     max_included_literals: int = 255
@@ -37,7 +37,7 @@ class Config:
     grid: tuple = (16*13, 1, 1)  # Optimized for A100-style
     block: tuple = (128, 1, 1)
 
-    # Training (A100 80GB)
+    # Training (A100 32GB)
     epochs: int = 100  # Leverage massive dataset
     test_every: int = 5  # Check progress every 10 epochs
 

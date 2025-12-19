@@ -26,7 +26,7 @@ rem   GEN_STAGES: all   (0,-2,-5)
 rem ------------------------------------------------------------
 
 set "BOARD_SIZE=%~1"
-if "%BOARD_SIZE%"=="" set "BOARD_SIZE=11"
+if "%BOARD_SIZE%"=="" set "BOARD_SIZE=5"
 
 set "STAGE=%~2"
 if "%STAGE%"=="" set "STAGE=end"
@@ -44,7 +44,7 @@ set "NUM_TEST=%~6"
 if "%NUM_TEST%"=="" set "NUM_TEST=3000"
 
 set "GEN_STAGES=%~7"
-if "%GEN_STAGES%"=="" set "GEN_STAGES=all"
+if "%GEN_STAGES%"=="" set "GEN_STAGES=0"
 
 echo.
 echo ================================================

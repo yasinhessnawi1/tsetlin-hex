@@ -25,8 +25,16 @@ echo Compiling for 11x11 board...
 cl /O2 /DBOARD_DIM=11 hex_datagen_stages.c /Fe:hex_datagen_11x11.exe
 
 echo.
-echo Compiling for 15x15 board...
-cl /O2 /DBOARD_DIM=15 hex_datagen_stages.c /Fe:hex_datagen_15x15.exe
+echo Compiling for 13x13 board...
+cl /O2 /DBOARD_DIM=13 hex_datagen_stages.c /Fe:hex_datagen_13x13.exe
+
+echo.
+echo Compiling for 17x17 board...
+cl /O2 /DBOARD_DIM=17 hex_datagen_stages.c /Fe:hex_datagen_17x17.exe
+
+echo.
+echo Compiling for 20x20 board...
+cl /O2 /DBOARD_DIM=20 hex_datagen_stages.c /Fe:hex_datagen_20x20.exe
 
 if %ERRORLEVEL% EQU 0 (
     echo Success! Created multi-stage data generation executables

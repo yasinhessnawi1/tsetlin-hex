@@ -12,11 +12,10 @@ echo Default configuration:
 echo   - Board: 5x5
 echo   - Stage: 0 (end game)
 echo   - Type: depth (depth-diverse composite)
-echo   - Clauses per specialist: 200
+echo   - Clauses per specialist: 333
 echo   - Epochs: 200
 echo   - T: 10000
-echo   - s: 10.0
-echo   - Depth: 3
+echo   - s: 1.0
 echo.
 echo You can customize by editing this script or running directly:
 echo   python scripts/4_train_composite.py --help
@@ -35,7 +34,7 @@ echo [INFO] CUDA environment configured
 echo.
 
 REM Run training
-python scripts/4_train_composite.py --board-size 5 --stage all --composite-type mixed --clauses-per-specialist 200 --epochs 200 --T 10000
+python scripts/4_train_composite.py --board-size 5 --stage all --composite-type mixed --clauses-per-specialist 400 --epochs 200 --T 8000
 
 echo.
 echo ============================================================

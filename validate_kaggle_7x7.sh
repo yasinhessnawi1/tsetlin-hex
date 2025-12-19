@@ -13,13 +13,17 @@ set -euo pipefail
 #   - Python deps for conversion/eval already installed
 #
 # Usage:
-#   ./validate_kaggle_7x7.sh [STAGE] [MODELS_DIR] [DATA_DIR] [NUM_TRAIN] [NUM_TEST]
+#   ./validate_kaggle_7x7.sh [STAGE] [MODELS_DIR] [DATA_DIR] [NUM_TRAIN] [NUM_TEST] [MAX_SAMPLES]
 # Defaults:
 #   STAGE: end
 #   MODELS_DIR: models
 #   DATA_DIR: data
 #   NUM_TRAIN: 10000  (used only if 3_evaluate auto-gen kicks in; we prebuild below)
 #   NUM_TEST: 3000    (used only if 3_evaluate auto-gen kicks in)
+#   MAX_SAMPLES: "" (empty = use all games)
+# Examples:
+#   ./validate_kaggle_7x7.sh                    # Use all ~1M games
+#   ./validate_kaggle_7x7.sh end models data "" "" 50000  # Use 50K games subset
 
 BOARD_SIZE=7
 STAGE=${1:-end}
@@ -27,6 +31,7 @@ MODELS_DIR=${2:-models}
 DATA_DIR=${3:-data/kaggle_eval}
 NUM_TRAIN=${4:-10000}
 NUM_TEST=${5:-3000}
+MAX_SAMPLES=${6:-""}
 # Force Kaggle to use only end-state (stage 0)
 GEN_STAGES="0"
 # Hypervector settings (override here if needed)
@@ -41,6 +46,11 @@ echo "  Stage      : ${STAGE}"
 echo "  Models dir : ${MODELS_DIR}"
 echo "  Data dir   : ${DATA_DIR}"
 echo "  Gen stages : ${GEN_STAGES}"
+if [ -n "${MAX_SAMPLES}" ]; then
+  echo "  Max samples: ${MAX_SAMPLES}"
+else
+  echo "  Max samples: all"
+fi
 echo "============================================================"
 echo ""
 
@@ -99,12 +109,16 @@ if [[ -f "${RAW_TRAIN}" && -f "${RAW_TEST}" ]]; then
   echo "[SKIP] Raw NPZ already present; skipping conversion."
 else
   echo "[RUN] Converting Kaggle dataset to GTM raw format..."
-  python3 scripts/convert_kaggle_game_of_hex.py \
-    --dataset-dir "${KAGGLE_DIR}" \
-    --board-size "${BOARD_SIZE}" \
-    --train-output "${RAW_TRAIN}" \
-    --test-output "${RAW_TEST}" \
-    --all-to-test
+  CONV_CMD="python3 scripts/convert_kaggle_game_of_hex.py \
+    --dataset-dir \"${KAGGLE_DIR}\" \
+    --board-size \"${BOARD_SIZE}\" \
+    --train-output \"${RAW_TRAIN}\" \
+    --test-output \"${RAW_TEST}\" \
+    --all-to-test"
+  if [ -n "${MAX_SAMPLES}" ]; then
+    CONV_CMD="${CONV_CMD} --max-samples ${MAX_SAMPLES}"
+  fi
+  eval "${CONV_CMD}"
 fi
 
 # 3) Build GTM graph datasets (single full set; skip if exists)
@@ -135,7 +149,9 @@ python3 scripts/3_evaluate.py \
   --num-train "${NUM_TRAIN}" \
   --num-test "${NUM_TEST}" \
   --gen-stages "${GEN_STAGES}" \
-  --test-file "${FULL_GTM}"
+  --test-file "${FULL_GTM}" \
+  --visualize \
+  --viz-dir "evaluation_plots"
 
 echo ""
 echo "============================================================"

@@ -162,6 +162,8 @@ class HexGraphTM:
             boost_true_positive_feedback=self.params['boost_true_positive_feedback'],
             grid=self.params['grid'],
             block=self.params['block'],
+            double_hashing=True,
+            one_hot_encoding=True,
         )
 
     def fit(

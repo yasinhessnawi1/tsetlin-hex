@@ -53,8 +53,12 @@ python3 scripts/3_evaluate.py \
   --models-dir "${MODELS_DIR}" \
   --num-train "${NUM_TRAIN}" \
   --num-test "${NUM_TEST}" \
-  --gen-stages "${GEN_STAGES}"
+  --gen-stages "${GEN_STAGES}" \
+  --visualize \
+  --viz-dir "evaluation_plots"
 
 STATUS=$?
 exit ${STATUS}
+
+
 

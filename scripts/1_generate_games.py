@@ -28,21 +28,15 @@ def generate_games_with_stages(board_size: int, num_games: int, output_file: str
         print(f"[INFO] {exe_name} not found. Attempting to compile on-the-fly...")
         import shutil
         if is_windows:
-            cl = shutil.which("cl")
-            if not cl:
-                print("ERROR: cl compiler not found. Run from VS Developer Prompt.")
-                return False
-            cmd = [
-                "cl",
-                "/O2",
-                f"/DBOARD_DIM={board_size}",
-                "hex_datagen_stages.c",
-                f"/Fe:hex_datagen_{board_size}x{board_size}.exe",
-            ]
+            # Set up MSVC environment by calling vcvars64.bat
+            vs_path = r"C:\Program Files\Microsoft Visual Studio\2022\Community"
+            vcvars_cmd = f'call "{vs_path}\\VC\\Auxiliary\\Build\\vcvars64.bat" && cl /O2 /DBOARD_DIM={board_size} hex_datagen_stages.c /Fe:hex_datagen_{board_size}x{board_size}.exe'
+
             try:
-                subprocess.run(cmd, check=True, cwd="hex_binaries")
+                subprocess.run(vcvars_cmd, shell=True, check=True, cwd="hex_binaries")
             except Exception as exc:
                 print(f"ERROR: Failed to compile generator: {exc}")
+                print("Make sure Visual Studio 2022 Community is installed at the expected path.")
                 return False
         else:
             gcc = shutil.which("gcc")

@@ -71,6 +71,25 @@ class HexTMComposite:
         """Get total clauses across all specialists."""
         return sum(c.clauses for c in self.configs.values())
 
+    def normalize_weights_by_clauses(self):
+        """
+        Auto-normalize weights based on clause allocation.
+        Each specialist's weight becomes proportional to its clause count.
+
+        Example:
+            Specialist A: 100 clauses → weight = 100/200 = 0.5
+            Specialist B: 100 clauses → weight = 100/200 = 0.5
+            Total: 200 clauses, sum of weights = 1.0
+        """
+        total = self.total_clauses()
+        for name, config in self.configs.items():
+            # Weight proportional to clause fraction
+            config.weight = config.clauses / total
+
+        print(f"[INFO] Normalized weights by clause allocation:")
+        for name, config in self.configs.items():
+            print(f"  {name}: {config.clauses} clauses → weight={config.weight:.3f}")
+
     def fit(self, graphs, labels, epochs: int = 100):
         """Train all specialists."""
         print(f"\n{'='*60}")
@@ -272,16 +291,12 @@ def create_mixed_composite(
     composite = HexTMComposite(grid=grid, block=block)
 
     configs = [
-        SpecialistConfig("d2_s5", clauses=base_clauses, depth=1, s=5.0, T=T,
+        SpecialistConfig("d2_s5", clauses=base_clauses, depth=1, s=1.0, T=T,
                         message_size=message_size, message_bits=message_bits, weight=0.8),
         SpecialistConfig("d2_s10", clauses=base_clauses, depth=2, s=1.0, T=T,
                         message_size=message_size, message_bits=message_bits, weight=0.9),
         SpecialistConfig("d3_s1", clauses=base_clauses, depth=3, s=1.0, T=T,
                         message_size=message_size, message_bits=message_bits, weight=1.2),
-        SpecialistConfig("d3_s15", clauses=base_clauses, depth=5, s=10.0, T=T,
-                        message_size=message_size, message_bits=message_bits, weight=0.9),
-        SpecialistConfig("d4_s10", clauses=base_clauses, depth=1, s=10.0, T=T,
-                        message_size=message_size, message_bits=message_bits, weight=0.8),
     ]
 
     for config in configs:

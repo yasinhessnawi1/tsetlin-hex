@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "============================================================"
-echo "TRAINING GTM ON A100 80GB"
+echo "TRAINING GTM ON A100 32GB"
 echo "============================================================"
 echo ""
 echo "Configuration:"
@@ -23,11 +23,15 @@ echo ""
 
 # Train with A100-optimized settings
 python3 scripts/2_train_model.py \
-    --board-size 5 \
-    --stage end \
-    --epochs 100 \
+    --board-size 7 \
+    --stage -2,-5 \
+    --epochs 1 \
     --clauses 200 \
-    --depth 6
+    --depth 3
+    --T 200
+    --s 1.0
+    --message-size 512
+    --message-bits 4
 
 echo ""
 echo "============================================================"

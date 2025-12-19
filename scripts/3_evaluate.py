@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.models import HexGraphTM, Predictor
 from src.utils import Config
+from src.utils.visualization import plot_confusion_matrix, plot_stage_comparison, plot_training_history
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -101,6 +102,7 @@ def ensure_raw_games(board_size: int, num_train: int, num_test: int, stages_arg:
         str(num_test),
         "--save-states",
         stages_arg,
+        "--no-balance",
     ]
     print(f"[RUN] Generating games: {' '.join(cmd)}")
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
@@ -227,6 +229,108 @@ def evaluate_stage(stage_name: str, config: Config, explicit_test_file: str = No
     return results
 
 
+def generate_visualizations(results: dict, config: Config, viz_dir: str, show_plots: bool):
+    """
+    Generate visualizations for evaluation results.
+
+    Args:
+        results: Dictionary of evaluation results by stage
+        config: Configuration object
+        viz_dir: Directory to save plots
+        show_plots: Whether to display plots interactively
+    """
+    import os
+    import matplotlib.pyplot as plt
+
+    # Create visualization directory
+    viz_path = Path(viz_dir)
+    viz_path.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print("GENERATING VISUALIZATIONS")
+    print(f"{'='*60}")
+    print(f"Plots will be saved to: {viz_path.absolute()}")
+
+    # Generate confusion matrix for each stage
+    for stage, result in results.items():
+        stage_label = {
+            'end': 'End',
+            '-2': '2_Before',
+            '-5': '5_Before'
+        }.get(stage, stage)
+
+        # Confusion matrix plot
+        title = f"Confusion Matrix - Stage: {stage_label} ({config.board_size}x{config.board_size})"
+        save_path = viz_path / f"confusion_matrix_{config.board_size}x{config.board_size}_{stage_label.lower()}.png"
+        fig, ax = plot_confusion_matrix(result['confusion_matrix'], title=title, save_path=str(save_path))
+
+        if not show_plots:
+            plt.close(fig)
+
+    # Generate stage comparison plot if multiple stages
+    if len(results) > 1:
+        title = f"Accuracy Comparison Across Stages ({config.board_size}x{config.board_size})"
+        save_path = viz_path / f"stage_comparison_{config.board_size}x{config.board_size}.png"
+        fig, ax = plot_stage_comparison(results, save_path=str(save_path))
+
+        if not show_plots:
+            plt.close(fig)
+
+    # Try to generate training history plots if available
+    training_histories = load_training_histories(results.keys(), config)
+    for stage, history in training_histories.items():
+        if history:
+            stage_label = {
+                'end': 'End',
+                '-2': '2_Before',
+                '-5': '5_Before'
+            }.get(stage, stage)
+
+            title = f"Training History - Stage: {stage_label} ({config.board_size}x{config.board_size})"
+            save_path = viz_path / f"training_history_{config.board_size}x{config.board_size}_{stage_label.lower()}.png"
+            fig, ax = plot_training_history(history, save_path=str(save_path))
+
+            if not show_plots:
+                plt.close(fig)
+
+    if show_plots:
+        plt.show()
+
+    print(f"\nVisualization generation complete!")
+    print(f"All plots saved to: {viz_path.absolute()}")
+    print(f"{'='*60}\n")
+
+
+def load_training_histories(stages: list, config: Config) -> dict:
+    """
+    Load training histories for the evaluated stages.
+
+    Args:
+        stages: List of stage names
+        config: Configuration object
+
+    Returns:
+        Dictionary mapping stage names to training histories (or None if not found)
+    """
+    histories = {}
+
+    for stage in stages:
+        history_path = config.get_model_path(stage).replace('.pkl', '_history.pkl')
+        if os.path.exists(history_path):
+            try:
+                with open(history_path, 'rb') as f:
+                    history = pickle.load(f)
+                histories[stage] = history
+                print(f"Loaded training history for stage {stage}: {history_path}")
+            except Exception as e:
+                print(f"Warning: Could not load training history for stage {stage}: {e}")
+                histories[stage] = None
+        else:
+            histories[stage] = None
+
+    return histories
+
+
 def main():
     parser = argparse.ArgumentParser(description='Evaluate GTM models')
 
@@ -246,6 +350,14 @@ def main():
                         help='Number of test games to generate if missing (default: 3000)')
     parser.add_argument('--gen-stages', type=str, default='all',
                         help='Stages to generate/build datasets for (default: all -> 0,-2,-5)')
+    parser.add_argument('--visualize', action='store_true', default=True,
+                        help='Generate visualizations for evaluation results (default: True)')
+    parser.add_argument('--no-visualize', action='store_true', default=False,
+                        help='Disable visualization generation')
+    parser.add_argument('--viz-dir', type=str, default='evaluation_plots',
+                        help='Directory to save visualization plots (default: evaluation_plots). Visualizations are generated automatically.')
+    parser.add_argument('--show-plots', action='store_true', default=False,
+                        help='Display plots interactively (blocks execution)')
 
     args = parser.parse_args()
 
@@ -301,6 +413,10 @@ def main():
         result = evaluate_stage(stage, config, explicit_test_file=args.test_file)
         if result is not None:
             results[stage] = result
+
+    # Generate visualizations by default (unless disabled)
+    if (args.visualize and not args.no_visualize) and len(results) > 0:
+        generate_visualizations(results, config, args.viz_dir, args.show_plots)
 
     # Comprehensive summary
     print("\n" + "="*60)

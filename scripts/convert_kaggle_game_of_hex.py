@@ -71,6 +71,10 @@ def main():
                         help="Test split fraction (default 0.2)")
     parser.add_argument("--all-to-test", action="store_true",
                         help="Put all samples into test set (train set gets full copy as well for compatibility)")
+    parser.add_argument("--max-samples", type=int, default=None,
+                        help="Maximum number of samples to process (default: all)")
+    parser.add_argument("--subset-seed", type=int, default=42,
+                        help="Random seed for subset selection (default: 42)")
     args = parser.parse_args()
 
     dataset_dir = Path(args.dataset_dir)
@@ -164,25 +168,54 @@ def main():
         print(f"ERROR: Unsupported source file type: {source_path}")
         sys.exit(1)
 
-    # Normalize board values if negatives exist (common: -1/0/1 => map to 0/1/2)
+    # Normalize board values from Kaggle encoding:
+    # Kaggle:    1 = first player (red),  -1 = second player (blue), 0 = empty
+    # Synthetic: 1 = Player0 (first mover), 2 = Player1 (second mover), 0 = empty
+    # Mapping to align with synthetic:
+    #   Kaggle  1 (first player)  -> GTM 1 (Player0)
+    #   Kaggle -1 (second player) -> GTM 2 (Player1)
+    #   Kaggle  0 (empty)         -> GTM 0 (Empty)
     uniq_board_vals = np.unique(boards)
-    if np.any(uniq_board_vals < 0):
-        print(f"[INFO] Normalizing board values from {uniq_board_vals} to non-negative (mapping -1->0, 0->1, 1->2)")
-        mapped = boards.copy()
-        mapped[boards == -1] = 0
-        mapped[boards == 0] = 1
-        mapped[boards == 1] = 2
-        boards = mapped
-        uniq_board_vals = np.unique(boards)
-        print(f"[INFO] Board values after normalization: {uniq_board_vals}")
+    expected_vals = {-1, 0, 1}
+    if not set(uniq_board_vals.tolist()).issubset(expected_vals):
+        print(f"[ERROR] Unexpected board values: {uniq_board_vals}. Expected subset of {-1,0,1}.")
+        sys.exit(1)
 
-    # Normalize winners to 0/1 (treat <=0 as 0, >0 as 1)
+    mapped = np.empty_like(boards, dtype=np.int8)
+    mapped[boards == 0] = 0          # empty
+    mapped[boards == 1] = 1          # Kaggle 1 (first player) -> Player0
+    mapped[boards == -1] = 2         # Kaggle -1 (second player) -> Player1
+    boards = mapped
+
+    uniq_board_vals = np.unique(boards)
+    print(f"[INFO] Board values after normalization (GTM): {uniq_board_vals} (0=Empty, 1=Player0, 2=Player1)")
+
+    # Normalize winners to match synthetic convention:
+    # Kaggle:    winner=1 means first player, winner=-1 means second player
+    # Synthetic: winner=0 means first player (Player0), winner=1 means second player (Player1)
+    # Mapping: Kaggle 1 -> 0, Kaggle -1 -> 1
     uniq_winners = np.unique(winners)
-    if not set(uniq_winners.tolist()).issubset({0, 1}):
-        print(f"[INFO] Normalizing winners from {uniq_winners} to {0,1} (<=0 -> 0, >0 -> 1)")
-        winners = (winners > 0).astype(np.int8)
-        uniq_winners = np.unique(winners)
-        print(f"[INFO] Winners after normalization: {uniq_winners}")
+    print(f"[INFO] Winners before normalization: {uniq_winners}")
+    if set(uniq_winners.tolist()).issubset({-1, 1}):
+        # Kaggle format: 1 = first player, -1 = second player
+        mapped_winners = np.empty_like(winners, dtype=np.int8)
+        mapped_winners[winners == 1] = 0   # first player -> Player0 (label 0)
+        mapped_winners[winners == -1] = 1  # second player -> Player1 (label 1)
+        winners = mapped_winners
+    elif not set(uniq_winners.tolist()).issubset({0, 1}):
+        print(f"[ERROR] Unexpected winner values: {uniq_winners}. Expected {-1,1} or {0,1}.")
+        sys.exit(1)
+    uniq_winners = np.unique(winners)
+    print(f"[INFO] Winners after normalization: {uniq_winners} (0=Player0/first, 1=Player1/second)")
+
+    # Apply subset selection if requested
+    if args.max_samples is not None and args.max_samples < len(winners):
+        print(f"[INFO] Selecting subset of {args.max_samples} games from {len(winners)} total")
+        np.random.seed(args.subset_seed)
+        indices = np.random.choice(len(winners), size=args.max_samples, replace=False)
+        winners = winners[indices]
+        boards = boards[indices]
+        print(f"[INFO] Subset selected with seed {args.subset_seed}")
 
     if boards.shape[1] != args.board_size or boards.shape[2] != args.board_size:
         print(f"ERROR: Board size mismatch: {boards.shape[1:]} vs expected {args.board_size}x{args.board_size}")
